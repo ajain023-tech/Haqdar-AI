@@ -43,14 +43,14 @@ class SarvamSpeech(Speech):
     def synthesize(self, text, lang):
         r = self.client.post(f"{SARVAM_BASE}/text-to-speech", headers=self.headers,
                              json={"text": text[:1500], "target_language_code": LANG_CODES.get(lang, "hi-IN"),
-                                   "model": os.environ.get("SARVAM_TTS_MODEL", "bulbul:v2")})
+                                   "model": os.environ.get("SARVAM_TTS_MODEL", "bulbul:v3")})
         r.raise_for_status()
         audios = r.json().get("audios") or []
         return f"data:audio/wav;base64,{audios[0]}" if audios else None
 
 
 def get_speech() -> Optional[Speech]:
-    key = os.environ.get("SARVAM_API_KEY", "").strip()
+    key = os.environ.get("SARVAM_API_KEY", "").strip().strip("\"'")
     return SarvamSpeech(key) if key else None
 
 
