@@ -182,3 +182,10 @@ def test_strip_unsupported_leaves_no_empty_bullets():
     res = check(text, hits)
     cleaned = strip_unsupported(text, res)
     assert cleaned == "* Widows get Rs 1000 per month [1]."
+
+
+def test_named_scheme_question_sees_every_section(store):
+    from backend.rag.store import Filters
+    sid = store.by_slug["ignwps"]
+    res = retrieve("pension kitni milti hai", mode="rerank", store=store, filters=Filters(scheme_ids=[sid]))
+    assert {h.section for h in res.hits} >= {"benefits", "eligibility", "details"}

@@ -103,6 +103,10 @@ class Store:
         """[{"id", "text"}] of chunks saved while embeddings were out of quota."""
         raise NotImplementedError
 
+    def scheme_chunks(self, scheme_ids: Sequence[int], limit: int = 40) -> List[Hit]:
+        """Every chunk of a few named schemes (score 0), for "tell me about scheme X" questions."""
+        raise NotImplementedError
+
     def set_embeddings(self, pairs: List[Tuple[int, List[float]]]) -> int:
         raise NotImplementedError
 
@@ -290,6 +294,11 @@ class MemoryStore(Store):
 
     def chunks_without_embeddings(self, limit=100):
         return [{"id": c["id"], "text": c["text"]} for c in self.chunks.values() if c["embedding"] is None][:limit]
+
+    def scheme_chunks(self, scheme_ids, limit=40):
+        ids = set(scheme_ids)
+        return [self._hit(c, 0.0) for c in self.chunks.values()
+                if c["scheme_id"] in ids and self.schemes[c["scheme_id"]]["status"] == "active"][:limit]
 
     def set_embeddings(self, pairs):
         for cid, emb in pairs:
@@ -511,6 +520,15 @@ class PgStore(Store):
                f"ORDER BY score DESC LIMIT %s")
         with self.pool.connection() as conn:
             return self._hits(conn.execute(sql, args).fetchall())
+
+    def scheme_chunks(self, scheme_ids, limit=40):
+        ids = list(scheme_ids)
+        if not ids:
+            return []
+        sql = (f"{self._SELECT}, 0.0 AS score FROM chunks c JOIN schemes s ON s.id = c.scheme_id "
+               f"WHERE c.scheme_id = ANY(%s) AND s.status = 'active' ORDER BY c.id LIMIT %s")
+        with self.pool.connection() as conn:
+            return self._hits(conn.execute(sql, (ids, limit)).fetchall())
 
     def chunks_without_embeddings(self, limit=100):
         with self.pool.connection() as conn:

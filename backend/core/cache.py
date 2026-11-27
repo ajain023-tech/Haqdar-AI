@@ -20,7 +20,7 @@ def cache_key(question: str, lang: str, mode: str, profile: Optional[Dict[str, A
     prof = json.dumps({k: v for k, v in (profile or {}).items() if v is not None}, sort_keys=True,
                       ensure_ascii=False)
     digest = hashlib.sha256(f"{norm}|{lang}|{mode}|{prof}".encode("utf-8")).hexdigest()[:32]
-    return f"haqdar:answer:v1:{digest}"
+    return f"haqdar:answer:v2:{digest}"
 
 
 class Cache:

@@ -16,6 +16,7 @@ from backend.rag.store import Filters, Hit, Store, get_store
 RRF_K = 60          # standard RRF constant
 CANDIDATES = 20     # per-retriever depth, and how many go to the reranker
 TOP_K = 5
+NAMED_SCHEMES = 3   # a filter this narrow means the user named the scheme(s)
 
 
 @dataclass
@@ -99,15 +100,22 @@ def retrieve(query: str, mode: str = "rerank", filters: Optional[Filters] = None
             h.scores["bm25"] = h.score
 
     fused = reciprocal_rank_fusion(*vec_lists, *kw_lists)
+    # A question about one or two named schemes: every section of them is a candidate (the reranker picks),
+    # and the per-scheme diversity cap doesn't apply.
+    named = filters.scheme_ids is not None and 0 < len(filters.scheme_ids) <= NAMED_SCHEMES
+    per_scheme = top_k if named else 2
+    if named and mode == "rerank":
+        seen = {h.chunk_id for h in fused}
+        fused += [h for h in store.scheme_chunks(filters.scheme_ids) if h.chunk_id not in seen]
     if mode == "hybrid":
-        hits = _dedupe_per_scheme(fused)[:top_k]
+        hits = _dedupe_per_scheme(fused, per_scheme)[:top_k]
         # RRF scores are rank-based; map the top one onto [0, 1] relative to a hit ranked #1 everywhere.
         best = max(len(vec_lists + kw_lists), 1) / (RRF_K + 1)
         top = (hits[0].score / best) if hits else 0.0
         return RetrievalResult(hits, mode, top, timings)
 
     reranker = reranker or get_reranker()
-    candidates = fused[:CANDIDATES]
+    candidates = fused[:max(CANDIDATES, 40 if named else 0)]
     rr_query = query if not alt_query else f"{query} ({alt_query})"
     t0 = time.perf_counter()
     rr_scores = reranker.score(rr_query, [h.text for h in candidates])
@@ -116,6 +124,6 @@ def retrieve(query: str, mode: str = "rerank", filters: Optional[Filters] = None
         h.scores["rerank"] = s
         h.score = s
     candidates.sort(key=lambda h: h.score, reverse=True)
-    hits = _dedupe_per_scheme(candidates)[:top_k]
+    hits = _dedupe_per_scheme(candidates, per_scheme)[:top_k]
     return RetrievalResult(hits, mode, hits[0].score if hits else 0.0, timings,
                            reranker=getattr(reranker, "last_used", reranker.name))
