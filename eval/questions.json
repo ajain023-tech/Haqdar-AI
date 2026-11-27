@@ -1,0 +1,976 @@
+{
+ "questions": [
+  {
+   "id": "q001",
+   "question": "पीएम किसान योजना में साल में कितने पैसे मिलते हैं?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pm-kisan"
+   ],
+   "named": true
+  },
+  {
+   "id": "q002",
+   "question": "छोटे किसानों को सरकार हर साल 6000 रुपये किस योजना में देती है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pm-kisan"
+   ],
+   "named": false
+  },
+  {
+   "id": "q003",
+   "question": "PM Kisan ki kist ke liye kaun se documents chahiye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pm-kisan"
+   ],
+   "named": true
+  },
+  {
+   "id": "q004",
+   "question": "Who is not eligible for PM-KISAN income support?",
+   "lang": "en",
+   "gold_slugs": [
+    "pm-kisan"
+   ],
+   "named": true
+  },
+  {
+   "id": "q005",
+   "question": "Which scheme gives farmers Rs 6,000 per year in three instalments?",
+   "lang": "en",
+   "gold_slugs": [
+    "pm-kisan"
+   ],
+   "named": false
+  },
+  {
+   "id": "q006",
+   "question": "गाँव में पक्का घर बनाने के लिए सरकार से कितनी मदद मिलती है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmay-g"
+   ],
+   "named": false
+  },
+  {
+   "id": "q007",
+   "question": "प्रधानमंत्री आवास योजना ग्रामीण के लिए पात्रता क्या है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmay-g"
+   ],
+   "named": true
+  },
+  {
+   "id": "q008",
+   "question": "Gramin awas yojana mein ghar ke liye kitna paisa milta hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmay-g"
+   ],
+   "named": true
+  },
+  {
+   "id": "q009",
+   "question": "How do I apply for Pradhan Mantri Awas Yojana Gramin?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmay-g"
+   ],
+   "named": true
+  },
+  {
+   "id": "q010",
+   "question": "Kachcha ghar hai gaon mein, pakka ghar banane ke liye koi yojana hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmay-g"
+   ],
+   "named": false
+  },
+  {
+   "id": "q011",
+   "question": "शहर में घर खरीदने के लिए ब्याज सब्सिडी किस योजना में मिलती है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmay-u"
+   ],
+   "named": false
+  },
+  {
+   "id": "q012",
+   "question": "प्रधानमंत्री आवास योजना शहरी में आवेदन कैसे करें?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmay-u"
+   ],
+   "named": true
+  },
+  {
+   "id": "q013",
+   "question": "What are the income categories under PMAY Urban?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmay-u"
+   ],
+   "named": true
+  },
+  {
+   "id": "q014",
+   "question": "Shahri awas yojana ke liye kaun eligible hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmay-u"
+   ],
+   "named": true
+  },
+  {
+   "id": "q015",
+   "question": "उज्ज्वला योजना में मुफ्त गैस कनेक्शन के लिए कौन आवेदन कर सकता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmuy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q016",
+   "question": "गरीब महिलाओं को एलपीजी कनेक्शन किस योजना से मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmuy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q017",
+   "question": "Ujjwala yojana ke liye kaun se documents lagte hain?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmuy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q018",
+   "question": "Can a man apply for a Pradhan Mantri Ujjwala Yojana connection?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmuy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q019",
+   "question": "Which scheme gives free LPG connections to women from poor households?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmuy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q020",
+   "question": "सुकन्या समृद्धि खाता कितनी उम्र तक की बेटी के लिए खुल सकता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "ssy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q021",
+   "question": "बेटी की पढ़ाई और शादी के लिए बचत खाता कौन सा है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "ssy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q022",
+   "question": "Sukanya samriddhi mein minimum kitna deposit karna padta hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "ssy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q023",
+   "question": "What is the maximum deposit per year in a Sukanya Samriddhi account?",
+   "lang": "en",
+   "gold_slugs": [
+    "ssy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q024",
+   "question": "अटल पेंशन योजना में कितनी उम्र में जुड़ सकते हैं?",
+   "lang": "hi",
+   "gold_slugs": [
+    "apy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q025",
+   "question": "असंगठित क्षेत्र के मज़दूरों के लिए 60 साल के बाद पेंशन वाली योजना कौन सी है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "apy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q026",
+   "question": "Atal pension yojana mein kitni pension milti hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "apy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q027",
+   "question": "Who cannot join the Atal Pension Yojana?",
+   "lang": "en",
+   "gold_slugs": [
+    "apy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q028",
+   "question": "जीवन ज्योति बीमा योजना का प्रीमियम कितना है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmjjby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q029",
+   "question": "सिर्फ़ 436 रुपये में 2 लाख का जीवन बीमा किस योजना में है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmjjby"
+   ],
+   "named": false
+  },
+  {
+   "id": "q030",
+   "question": "What is the age limit for PMJJBY life insurance?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmjjby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q031",
+   "question": "Jeevan jyoti bima ka claim kaise karein?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmjjby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q032",
+   "question": "सुरक्षा बीमा योजना में दुर्घटना पर कितना पैसा मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmsby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q033",
+   "question": "20 रुपये सालाना वाला दुर्घटना बीमा कौन सा है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmsby"
+   ],
+   "named": false
+  },
+  {
+   "id": "q034",
+   "question": "What does Pradhan Mantri Suraksha Bima Yojana cover?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmsby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q035",
+   "question": "Suraksha bima yojana ke liye bank account zaroori hai kya?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmsby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q036",
+   "question": "मुद्रा लोन में शिशु, किशोर और तरुण क्या हैं?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmmy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q037",
+   "question": "छोटा व्यापार शुरू करने के लिए बिना गारंटी लोन किस योजना में मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmmy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q038",
+   "question": "Mudra loan kaise milega dukan ke liye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmmy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q039",
+   "question": "What is the maximum loan under Pradhan Mantri Mudra Yojana?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmmy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q040",
+   "question": "स्टैंड-अप इंडिया योजना में कितना लोन मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "sui"
+   ],
+   "named": true
+  },
+  {
+   "id": "q041",
+   "question": "SC/ST ya mahila entrepreneur ke liye 10 lakh se 1 crore ka loan kis yojana mein milta hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "sui"
+   ],
+   "named": false
+  },
+  {
+   "id": "q042",
+   "question": "How do I apply for a Stand-Up India loan?",
+   "lang": "en",
+   "gold_slugs": [
+    "sui"
+   ],
+   "named": true
+  },
+  {
+   "id": "q043",
+   "question": "Is Stand-Up India only for new greenfield businesses?",
+   "lang": "en",
+   "gold_slugs": [
+    "sui"
+   ],
+   "named": true
+  },
+  {
+   "id": "q044",
+   "question": "किसान क्रेडिट कार्ड पर ब्याज दर कितनी है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "kcc"
+   ],
+   "named": true
+  },
+  {
+   "id": "q045",
+   "question": "खेती के लिए कम ब्याज पर उधार किस कार्ड से मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "kcc"
+   ],
+   "named": false
+  },
+  {
+   "id": "q046",
+   "question": "Kisan credit card banwane ke liye kya documents chahiye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "kcc"
+   ],
+   "named": true
+  },
+  {
+   "id": "q047",
+   "question": "Can fishermen and animal farmers get a Kisan Credit Card?",
+   "lang": "en",
+   "gold_slugs": [
+    "kcc"
+   ],
+   "named": true
+  },
+  {
+   "id": "q048",
+   "question": "फसल बीमा योजना में किसान को कितना प्रीमियम देना होता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmfby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q049",
+   "question": "बारिश या सूखे से फसल खराब होने पर मुआवज़ा किस योजना में मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmfby"
+   ],
+   "named": false
+  },
+  {
+   "id": "q050",
+   "question": "Fasal bima ka claim kaise karte hain?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmfby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q051",
+   "question": "Which crops are covered under Pradhan Mantri Fasal Bima Yojana?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmfby"
+   ],
+   "named": true
+  },
+  {
+   "id": "q052",
+   "question": "मनरेगा में साल में कितने दिन काम की गारंटी है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "mgnrega"
+   ],
+   "named": true
+  },
+  {
+   "id": "q053",
+   "question": "गाँव में रोज़गार न मिले तो सरकार से 100 दिन का काम कैसे मिलेगा?",
+   "lang": "hi",
+   "gold_slugs": [
+    "mgnrega"
+   ],
+   "named": false
+  },
+  {
+   "id": "q054",
+   "question": "Manrega job card kaise banta hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "mgnrega"
+   ],
+   "named": true
+  },
+  {
+   "id": "q055",
+   "question": "What happens if MGNREGA work is not given within 15 days?",
+   "lang": "en",
+   "gold_slugs": [
+    "mgnrega"
+   ],
+   "named": true
+  },
+  {
+   "id": "q056",
+   "question": "Gaon mein kaam nahi mil raha, 100 din ka rozgar wali yojana batao",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "mgnrega"
+   ],
+   "named": false
+  },
+  {
+   "id": "q057",
+   "question": "मातृ वंदना योजना में गर्भवती महिला को कितने पैसे मिलते हैं?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmmvy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q058",
+   "question": "पहले बच्चे के जन्म पर माँ को सरकारी पैसा किस योजना में मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmmvy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q059",
+   "question": "Matru vandana yojana ka form kahan bharein?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmmvy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q060",
+   "question": "What documents are needed for Pradhan Mantri Matru Vandana Yojana?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmmvy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q061",
+   "question": "Is there cash support for pregnant women for their first child?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmmvy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q062",
+   "question": "विधवा पेंशन योजना में हर महीने कितनी पेंशन मिलती है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "ignwps"
+   ],
+   "named": true
+  },
+  {
+   "id": "q063",
+   "question": "पति की मृत्यु के बाद गरीब महिला को पेंशन कैसे मिलेगी?",
+   "lang": "hi",
+   "gold_slugs": [
+    "ignwps"
+   ],
+   "named": false
+  },
+  {
+   "id": "q064",
+   "question": "Vidhwa pension ke liye umar kitni honi chahiye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "ignwps"
+   ],
+   "named": true
+  },
+  {
+   "id": "q065",
+   "question": "Who is eligible for the Indira Gandhi National Widow Pension Scheme?",
+   "lang": "en",
+   "gold_slugs": [
+    "ignwps"
+   ],
+   "named": true
+  },
+  {
+   "id": "q066",
+   "question": "दिव्यांग पेंशन के लिए कितने प्रतिशत विकलांगता चाहिए?",
+   "lang": "hi",
+   "gold_slugs": [
+    "igndps"
+   ],
+   "named": true
+  },
+  {
+   "id": "q067",
+   "question": "बीपीएल परिवार के विकलांग व्यक्ति को केंद्र सरकार की कौन सी पेंशन मिलती है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "igndps"
+   ],
+   "named": false
+  },
+  {
+   "id": "q068",
+   "question": "What is the monthly amount under the Indira Gandhi National Disability Pension Scheme?",
+   "lang": "en",
+   "gold_slugs": [
+    "igndps"
+   ],
+   "named": true
+  },
+  {
+   "id": "q069",
+   "question": "Viklang pension ke liye kaun se documents lagte hain?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "igndps"
+   ],
+   "named": true
+  },
+  {
+   "id": "q070",
+   "question": "Disability hai aur BPL card hai, pension wali koi yojana hai kya?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "igndps"
+   ],
+   "named": false
+  },
+  {
+   "id": "q071",
+   "question": "पीएमईजीपी में नया उद्योग लगाने पर कितनी सब्सिडी मिलती है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmegp"
+   ],
+   "named": false
+  },
+  {
+   "id": "q072",
+   "question": "प्रधानमंत्री रोजगार सृजन कार्यक्रम के लिए कौन आवेदन कर सकता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmegp"
+   ],
+   "named": true
+  },
+  {
+   "id": "q073",
+   "question": "PMEGP loan ke liye minimum padhai kitni chahiye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmegp"
+   ],
+   "named": true
+  },
+  {
+   "id": "q074",
+   "question": "What is the margin money subsidy under PMEGP for rural areas?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmegp"
+   ],
+   "named": true
+  },
+  {
+   "id": "q075",
+   "question": "Is there a subsidy for setting up a new manufacturing unit in a village?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmegp"
+   ],
+   "named": false
+  },
+  {
+   "id": "q076",
+   "question": "कन्या सुमंगला योजना में कुल कितने रुपये मिलते हैं?",
+   "lang": "hi",
+   "gold_slugs": [
+    "ksy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q077",
+   "question": "उत्तर प्रदेश में बेटी के जन्म पर पैसे किस योजना में मिलते हैं?",
+   "lang": "hi",
+   "gold_slugs": [
+    "ksy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q078",
+   "question": "Kanya sumangala yojana ke liye family income kitni honi chahiye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "ksy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q079",
+   "question": "How many installments are paid under the Kanya Sumangala Yojana?",
+   "lang": "en",
+   "gold_slugs": [
+    "ksy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q080",
+   "question": "UP mein beti hui hai, uske liye koi sarkari yojana hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "ksy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q081",
+   "question": "जन धन खाते में ओवरड्राफ्ट कितना मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmjdy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q082",
+   "question": "बिना पैसे के ज़ीरो बैलेंस बैंक खाता किस योजना में खुलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pmjdy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q083",
+   "question": "Jan dhan account kholne ke liye kya chahiye?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmjdy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q084",
+   "question": "What insurance comes with a Pradhan Mantri Jan Dhan Yojana account?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmjdy"
+   ],
+   "named": true
+  },
+  {
+   "id": "q085",
+   "question": "How can I open a zero-balance bank account under a government scheme?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmjdy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q086",
+   "question": "रेहड़ी-पटरी वालों को स्वनिधि योजना में कितना लोन मिलता है?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pm-svanidhi"
+   ],
+   "named": true
+  },
+  {
+   "id": "q087",
+   "question": "ठेला लगाने वाले को बिना गारंटी लोन कहाँ से मिलेगा?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pm-svanidhi"
+   ],
+   "named": false
+  },
+  {
+   "id": "q088",
+   "question": "Street vendor hoon, PM Svanidhi loan ke liye kya karna hoga?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pm-svanidhi"
+   ],
+   "named": true
+  },
+  {
+   "id": "q089",
+   "question": "Thela lagata hoon, 10000 ka loan kaise milega?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pm-svanidhi"
+   ],
+   "named": false
+  },
+  {
+   "id": "q090",
+   "question": "Is there a loan scheme for street vendors without collateral?",
+   "lang": "en",
+   "gold_slugs": [
+    "pm-svanidhi"
+   ],
+   "named": false
+  },
+  {
+   "id": "q091",
+   "question": "What is the interest subsidy under PM SVANidhi?",
+   "lang": "en",
+   "gold_slugs": [
+    "pm-svanidhi"
+   ],
+   "named": true
+  },
+  {
+   "id": "q092",
+   "question": "पीएम किसान में ई-केवाईसी कैसे करें?",
+   "lang": "hi",
+   "gold_slugs": [
+    "pm-kisan"
+   ],
+   "named": true
+  },
+  {
+   "id": "q093",
+   "question": "Free gas cylinder connection ke liye kahan apply karein?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmuy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q094",
+   "question": "What is the credit limit under the Kisan Credit Card scheme?",
+   "lang": "en",
+   "gold_slugs": [
+    "kcc"
+   ],
+   "named": true
+  },
+  {
+   "id": "q095",
+   "question": "Fasal kharab ho gayi baarish se, bima kaise milega?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmfby"
+   ],
+   "named": false
+  },
+  {
+   "id": "q096",
+   "question": "Is there a government pension scheme for unorganised sector workers?",
+   "lang": "en",
+   "gold_slugs": [
+    "apy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q097",
+   "question": "Beti ke liye government savings account kaunsa hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "ssy"
+   ],
+   "named": false
+  },
+  {
+   "id": "q098",
+   "question": "Is there a subsidy on home loan interest for low-income families in cities?",
+   "lang": "en",
+   "gold_slugs": [
+    "pmay-u"
+   ],
+   "named": false
+  },
+  {
+   "id": "q099",
+   "question": "Kam premium wala life insurance sarkar ka kaunsa hai?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmjjby"
+   ],
+   "named": false
+  },
+  {
+   "id": "q100",
+   "question": "Accident insurance sirf 20 rupaye mein kaise milega?",
+   "lang": "hinglish",
+   "gold_slugs": [
+    "pmsby"
+   ],
+   "named": false
+  }
+ ],
+ "trick": [
+  {
+   "id": "t01",
+   "question": "प्रधानमंत्री मुफ्त स्मार्टफोन योजना में कैसे आवेदन करें?",
+   "lang": "hi",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t02",
+   "question": "पीएम फ्री लैपटॉप योजना 2026 की पात्रता क्या है?",
+   "lang": "hi",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t03",
+   "question": "राष्ट्रीय मुफ्त ट्रैक्टर योजना में कितनी सब्सिडी मिलती है?",
+   "lang": "hi",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t04",
+   "question": "PM Bijli Bill Maafi Yojana ke liye form kaise bharein?",
+   "lang": "hinglish",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t05",
+   "question": "PM Free Washing Machine Yojana mein kaun eligible hai?",
+   "lang": "hinglish",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t06",
+   "question": "Rashtriya Free Bike Yojana ka registration kaise hoga?",
+   "lang": "hinglish",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t07",
+   "question": "What are the eligibility rules for the PM Gold Coin Yojana?",
+   "lang": "en",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t08",
+   "question": "How do I apply for the PM Mobile Recharge Yojana?",
+   "lang": "en",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t09",
+   "question": "What documents are required for the Digital Gaay Bima Yojana?",
+   "lang": "en",
+   "gold_slugs": [],
+   "expect_refusal": true
+  },
+  {
+   "id": "t10",
+   "question": "How much money does the PM Free Solar Car Scheme give?",
+   "lang": "en",
+   "gold_slugs": [],
+   "expect_refusal": true
+  }
+ ]
+}
