@@ -1,0 +1,17 @@
+# Backend API deploy (repo root): ship only what the API imports.
+.venv
+.env
+data
+frontend
+eval
+tests
+loadtest
+reranker_space
+ingest
+docs
+verification
+*.md
+Dockerfile
+docker-compose.yml
+render.yaml
+requirements-dev.txt

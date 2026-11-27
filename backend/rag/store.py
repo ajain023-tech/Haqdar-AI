@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import threading
 import uuid
@@ -509,7 +510,9 @@ def get_store() -> Store:
     if _store is None:
         from backend.core.config import get_settings
         dsn = get_settings().database_url
-        _store = PgStore(dsn) if dsn else MemoryStore()
+        # Serverless instances (Vercel) each hold their own pool: keep it small.
+        size = int(os.environ.get("DB_POOL_MAX", "5"))
+        _store = PgStore(dsn, max_size=size) if dsn else MemoryStore()
     return _store
 
 
