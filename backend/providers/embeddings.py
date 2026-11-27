@@ -31,12 +31,16 @@ class Embedder:
 
 class GeminiEmbedder(Embedder):
     name = "gemini"
-    batch_size = 100  # API limit per batchEmbedContents call
+    batch_size = 50   # texts per batchEmbedContents call (API max 100)
 
-    def __init__(self, api_key: str, model: str, dim: int):
+    def __init__(self, api_key: str, model: str, dim: int, texts_per_minute: Optional[int] = None):
+        import os
         self.api_key = api_key
         self.model = model
         self.dim = dim
+        # Free tier counts every text in a batch against ~100/minute: pace below that.
+        self.texts_per_minute = texts_per_minute or int(os.environ.get("EMBED_TEXTS_PER_MINUTE", "90"))
+        self._sent: List[tuple] = []  # (timestamp, n_texts)
         self.client = httpx.Client(timeout=60.0, headers={"x-goog-api-key": api_key})
 
     def _batch(self, texts: List[str], task: str) -> List[List[float]]:
@@ -47,16 +51,26 @@ class GeminiEmbedder(Embedder):
             "taskType": task,
             "outputDimensionality": self.dim,
         } for t in texts]}
-        for attempt in range(5):
+        for attempt in range(8):
+            self._pace(len(texts))
             r = self.client.post(url, json=body)
-            if r.status_code == 429:  # free-tier rate limit: back off and retry
-                time.sleep(2 ** attempt)
+            if r.status_code == 429:  # rate limit: wait as long as the API asks, then retry
+                time.sleep(_retry_delay(r, default=min(60, 5 * 2 ** attempt)))
                 continue
             r.raise_for_status()
             record_usage("embed", tokens_in=sum(len(t) // 4 for t in texts), calls=1)
             return [_normalize(e["values"]) for e in r.json()["embeddings"]]
         r.raise_for_status()
         return []
+
+    def _pace(self, n: int) -> None:
+        now = time.time()
+        self._sent = [(t, k) for t, k in self._sent if now - t < 60]
+        used = sum(k for _, k in self._sent)
+        if self._sent and used + n > self.texts_per_minute:
+            time.sleep(max(0.0, 60 - (now - self._sent[0][0])) + 0.5)
+            self._sent = []
+        self._sent.append((time.time(), n))
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         out: List[List[float]] = []
@@ -95,6 +109,17 @@ class HashEmbedder(Embedder):
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return [self._vec(t) for t in texts]
+
+
+def _retry_delay(r: "httpx.Response", default: float) -> float:
+    """Seconds from Google's RetryInfo ("46s"), else `default`."""
+    try:
+        for det in r.json().get("error", {}).get("details", []):
+            if "retryDelay" in det:
+                return float(str(det["retryDelay"]).rstrip("s")) + 1
+    except Exception:  # noqa: BLE001
+        pass
+    return default
 
 
 def _normalize(v: List[float]) -> List[float]:

@@ -38,10 +38,14 @@ def index_scheme(scheme: Dict[str, Any], sections_by_lang: Dict[str, Dict[str, s
     scheme = dict(scheme)
     scheme["content_hash"] = scheme.get("content_hash") or content_hash(sections_by_lang)
     raw = json.dumps(sections_by_lang, ensure_ascii=False)
-    sid, status = store.upsert_scheme(scheme, raw_text=raw)
-    if status == "unchanged" and not force:
+    existing = store.get_scheme(scheme["slug"])
+    if existing and existing.get("content_hash") == scheme["content_hash"] and not force:
+        sid, status = store.upsert_scheme(scheme, raw_text=raw)  # only moves last_checked
         return status
+    # Embed BEFORE writing the row: if embedding fails (rate limit, outage), nothing is saved and the
+    # next run retries this scheme instead of seeing an "unchanged" hash with no chunks behind it.
     chunks = build_chunks(scheme, sections_by_lang)
     embeddings = embedder.embed_documents([c.text for c in chunks]) if chunks else []
+    sid, status = store.upsert_scheme(scheme, raw_text=raw)
     store.replace_chunks(sid, chunks, embeddings)
-    return status
+    return "updated" if status == "unchanged" else status
