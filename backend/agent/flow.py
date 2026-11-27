@@ -96,9 +96,16 @@ class Agent:
             history: List[Dict[str, Any]] = sess.get("history") or []
             pending = prev_profile.pop("_pending_followup", None)
             asked = prev_profile.pop("_asked", [])
+            prev_lang = prev_profile.pop("_lang", None)
+        # A short reply to our follow-up ("haan", "45", "नहीं") continues the previous question:
+        # keep its language and search with it, while the reply only fills in the profile.
+        reply_to_followup = bool(pending) and len(message.split()) <= 4
+        last_question = next((h["text"] for h in reversed(history) if h.get("role") == "user"), None)
+        ask = f"{last_question} ({message})" if reply_to_followup and last_question else message
 
         # DETECT_LANG + EXTRACT_PROFILE
-        lang = lang if lang in ("en", "hi", "hinglish") else detect_lang(message)
+        lang = lang if lang in ("en", "hi", "hinglish") else (
+            prev_lang if reply_to_followup and prev_lang else detect_lang(message))
         with trace.span("extract_profile", input={"lang": lang}) as sp:
             prof = extract_profile(message, prev_profile, llm=self.llm, pending=pending)
             if profile:
@@ -107,20 +114,20 @@ class Agent:
 
         # ROUTE
         with trace.span("route") as sp:
-            r = route(message, self.index, has_pending_followup=bool(pending), llm=self.llm)
+            r = route(ask, self.index, has_pending_followup=bool(pending), llm=self.llm)
             sp["output"] = {"intent": r.intent, "scheme_ids": r.scheme_ids, "named": r.named}
 
         yield {"type": "meta", "session_id": session_id, "lang": lang, "intent": r.intent, "profile": prof,
                "trace_id": trace.id}
 
         # CACHE
-        ckey = cache_key(message, lang, f"{self.cfg.mode}:{self.cfg.use_rules}:{self.cfg.use_selfcheck}", prof)
+        ckey = cache_key(ask, lang, f"{self.cfg.mode}:{self.cfg.use_rules}:{self.cfg.use_selfcheck}", prof)
         if self.cfg.use_cache:
             cached = self.cache.get(ckey)
             if cached:
                 cached = dict(cached, session_id=session_id, cached=True, trace_id=trace.id)
                 yield {"type": "token", "text": cached["answer"]["text"]}
-                self._save(session_id, prof, history, message, cached, asked)
+                self._save(session_id, prof, history, ask, cached, asked, lang)
                 trace.end({"cached": True})
                 yield {"type": "final", **cached}
                 return
@@ -129,7 +136,7 @@ class Agent:
         verdicts: List[Verdict] = []
         follow_up = None
         filters = Filters(state=prof.get("state"))
-        query = message
+        query = ask
         if r.intent == "find_schemes" and self.cfg.use_rules:
             with trace.span("rules") as sp:
                 verdicts = evaluate(prof, self.store.list_schemes(state=prof.get("state")), lang)
@@ -148,7 +155,7 @@ class Agent:
 
         # REWRITE (hi / hinglish -> English search query) + RETRIEVE
         with trace.span("rewrite_query") as sp:
-            alt = rewrite_query(message, lang, llm=self.llm)
+            alt = rewrite_query(ask, lang, llm=self.llm)
             sp["output"] = alt
         with trace.span("retrieve", input={"query": query, "alt_query": alt, "mode": self.cfg.mode}) as sp:
             res = self._retrieve(query, filters, alt)
@@ -169,7 +176,7 @@ class Agent:
                 yield {"type": "token", "text": pieces[0]}
             else:
                 pieces = []
-                for piece in answer_mod.stream_generate(message, res.hits, lang, res.top_score, threshold,
+                for piece in answer_mod.stream_generate(ask, res.hits, lang, res.top_score, threshold,
                                                         verdict_dicts, prof, llm=self.llm):
                     pieces.append(piece)
                     yield {"type": "token", "text": piece}
@@ -185,7 +192,7 @@ class Agent:
                 if not check.ok:
                     extra = " ".join(c.claim for c in check.unsupported)[:300]
                     res2 = self._retrieve(f"{query} {extra}", filters, alt)
-                    ans2 = answer_mod.generate(message, res2.hits, lang, res2.top_score, threshold,
+                    ans2 = answer_mod.generate(ask, res2.hits, lang, res2.top_score, threshold,
                                                verdict_dicts, prof, llm=self.llm)
                     check2 = selfcheck.check(ans2.text, res2.hits, llm=self.llm)
                     if check2.faithfulness >= check.faithfulness:
@@ -203,7 +210,11 @@ class Agent:
 
         # CARDS
         self.last_hits = res.hits  # chunks the final answer was generated from (eval judges against these)
-        cards = self._cards(verdicts, ans, prof)
+        cards = self._cards(verdicts, ans, prof, res.hits)
+        if follow_up and cards:
+            # Ask about what matters for the schemes on screen first; fall back to the whole list.
+            shown = {c["slug"] for c in cards}
+            follow_up = pick_followup([v for v in verdicts if v.slug in shown], lang, asked) or follow_up
         timings = dict(trace.timings_ms)
         timings.update({f"retrieve_{k}": round(v, 1) for k, v in res.timings_ms.items()})
         timings["total"] = round((time.perf_counter() - t_start) * 1000, 1)
@@ -220,7 +231,7 @@ class Agent:
         if self.cfg.use_cache:
             self.cache.set(ckey, {k: v for k, v in payload.items() if k not in ("session_id", "trace_id")},
                            ttl=self.settings.cache_ttl_seconds)
-        self._save(session_id, prof, history, message, payload, asked)
+        self._save(session_id, prof, history, ask, payload, asked, lang)
         trace.end({"answer": ans.text[:500], "refused": ans.refused})
         yield {"type": "final", **payload}
 
@@ -245,24 +256,41 @@ class Agent:
                     return True
         return False
 
-    def _cards(self, verdicts: List[Verdict], ans: answer_mod.Answer, prof: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _cards(self, verdicts: List[Verdict], ans: answer_mod.Answer, prof: Dict[str, Any],
+               hits: Optional[list] = None) -> List[Dict[str, Any]]:
+        """Cards in the order that matters to this question: cited schemes, then other retrieved ones,
+        then remaining eligible/maybe schemes from the rule engine. Ruled-out schemes and duplicate
+        names (the same scheme listed under several slugs) are skipped."""
         if ans.refused and not verdicts:
             return []
-        by_id: Dict[int, Optional[Verdict]] = {}
-        for v in verdicts:
-            if v.verdict != "no" and len(by_id) < MAX_CARDS:
-                by_id[v.scheme_id] = v
+        by_verdict = {v.scheme_id: v for v in verdicts}
+        order: List[int] = []
         cited_slugs = [c["slug"] if isinstance(c, dict) else c.slug for c in ans.citations]
         for slug in cited_slugs:
             s = self.store.get_scheme(slug)
-            if s and s["id"] not in by_id and len(by_id) < MAX_CARDS:
-                by_id[s["id"]] = None
-        schemes = {s["id"]: s for s in self.store.get_schemes(list(by_id))}
-        cards = []
-        for sid, v in by_id.items():
+            if s:
+                order.append(s["id"])
+        order += [h.scheme_id for h in (hits or [])]
+        order += [v.scheme_id for v in verdicts if v.verdict == "eligible"]
+        order += [v.scheme_id for v in verdicts if v.verdict == "maybe" and v.missing]
+        seen_ids, seen_names, picked = set(), set(), []
+        schemes = {s["id"]: s for s in self.store.get_schemes(list(dict.fromkeys(order)))}
+        for sid in order:
             s = schemes.get(sid)
-            if not s:
+            v = by_verdict.get(sid)
+            if not s or sid in seen_ids or (v and v.verdict == "no"):
                 continue
+            key = " ".join(s["name"].lower().split())
+            if key in seen_names:
+                continue
+            seen_ids.add(sid)
+            seen_names.add(key)
+            picked.append((sid, v))
+            if len(picked) >= MAX_CARDS:
+                break
+        cards = []
+        for sid, v in picked:
+            s = schemes[sid]
             if v is None and prof:
                 v = evaluate(prof, [s], ans.lang)[0]
             cards.append({
@@ -277,8 +305,9 @@ class Agent:
         return cards
 
     def _save(self, session_id: str, prof: Dict[str, Any], history: List[Dict[str, Any]], message: str,
-              payload: Dict[str, Any], asked: List[str]) -> None:
+              payload: Dict[str, Any], asked: List[str], lang: str = "en") -> None:
         stored = dict(prof)
+        stored["_lang"] = lang
         fu = payload.get("follow_up")
         if fu:
             stored["_pending_followup"] = fu["field"]

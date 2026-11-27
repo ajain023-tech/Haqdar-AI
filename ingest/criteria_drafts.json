@@ -1,52 +1,262 @@
 {
  "_about": "Criteria drafted by reading each scheme's official eligibility text on myScheme (quoted in 'evidence'). Status stays 'auto' until a person checks them against the guideline PDF and imports the checklist (python -m ingest.verify import). 'not_expressible' lists rules the frozen criteria JSON cannot hold; the rule engine cannot check those, so answers must mention them.",
- "pm-kisan": {"criteria": {"states": ["ALL"], "occupation": ["farmer"]},
-   "evidence": "All landholding farmers' families, which have cultivable land holding in their names are eligible.",
-   "not_expressible": ["exclusions: institutional landholders, income-tax payers, government employees, pensioners >= Rs 10,000/month"]},
- "kcc": {"criteria": {"states": ["ALL"], "occupation": ["farmer"]},
-   "evidence": "Farmers - individual/joint borrowers who are owner cultivators; tenant farmers, oral lessees & share croppers; SHGs/JLGs of farmers."},
- "pmfby": {"criteria": {"states": ["ALL"], "occupation": ["farmer"]},
-   "evidence": "All farmers, including tenant farmers and sharecroppers growing notified crops in notified areas.",
-   "not_expressible": ["notified crops in notified areas only", "apply within the sowing-season window"]},
- "apy": {"criteria": {"states": ["ALL"], "age": {"min": 18, "max": 40}},
-   "evidence": "The minimum age of joining APY is 18 years and maximum is 40 years.",
-   "not_expressible": ["not for current or past income-tax payers (from 1 Oct 2022)", "needs a savings bank account"]},
- "pmjjby": {"criteria": {"states": ["ALL"], "age": {"min": 18, "max": 50}},
-   "evidence": "The age of the applicant must be between 18 to 50 Years. The applicant must hold an individual bank / post office account."},
- "pmsby": {"criteria": {"states": ["ALL"], "age": {"min": 18, "max": 70}},
-   "evidence": "Individual bank account holders of participating banks aged between 18 years (completed) and 70 years."},
- "pmuy": {"criteria": {"states": ["ALL"], "gender": "female", "age": {"min": 18}, "bpl": true},
-   "evidence": "An adult woman belonging to a poor household and not having an LPG connection in her household. Male member from a household cannot apply.",
-   "not_expressible": ["'poor household' also covers SECC 2011, SC/ST, PMAY, AAY and other listed categories, not only BPL card holders", "no existing LPG connection in the household"]},
- "ignwps": {"criteria": {"states": ["ALL"], "gender": "female", "age": {"min": 40, "max": 79}, "bpl": true},
-   "evidence": "The applicant must be a widow in the age group of 40-79 years ... household living below the poverty line.",
-   "not_expressible": ["must be a widow (marital status is not a profile field)"]},
- "igndps": {"criteria": {"states": ["ALL"], "age": {"min": 18, "max": 79}, "disability": true, "bpl": true},
-   "evidence": "The age of the applicant should be 18 years and above ... disability should be more than 80% ... should belong to the Below Poverty Line. (National Social Assistance Programme sets the upper limit at 79.)",
-   "not_expressible": ["disability must be above 80%"]},
- "pmegp": {"criteria": {"states": ["ALL"], "age": {"min": 18}},
-   "evidence": "Any individual, above 18 years of age. There will be no income ceiling.",
-   "not_expressible": ["VIII pass for projects above Rs 10 lakh (manufacturing) / Rs 5 lakh (service)", "new projects only"]},
- "pmmy": {"criteria": {"states": ["ALL"], "occupation": ["entrepreneur", "self_employed", "street_vendor", "artisan"]},
-   "evidence": "Eligible borrowers: individuals, proprietary concerns, partnership firms, companies ... for non-farm income-generating micro enterprises.",
-   "not_expressible": ["must not be a loan defaulter"]},
- "pm-svanidhi": {"criteria": {"states": ["ALL"], "occupation": ["street_vendor"]},
-   "evidence": "Street vendors in possession of Certificate of Vending / Identity Card issued by Urban Local Bodies, or with a Letter of Recommendation."},
- "sui": {"criteria": {"states": ["ALL"], "age": {"min": 18}},
-   "evidence": "Finance is provided for Greenfield Enterprises. If the applicant is a male, he must be from SC / ST category. The age of the applicant must be at least 18 years.",
-   "not_expressible": ["men must be SC/ST (an either-or rule: women of any category, or SC/ST men)", "greenfield enterprises only"]},
- "mgnrega": {"criteria": {"states": ["ALL"], "age": {"min": 18}},
-   "evidence": "The applicant must be at least 18 years of age. The applicant must be residing in a Rural Area.",
-   "not_expressible": ["rural residence"]},
- "pmmvy": {"criteria": {"states": ["ALL"], "gender": "female", "age": {"min": 19}},
-   "evidence": "The applicant should be of at least 19 years old and a pregnant women ... only for the first live birth.",
-   "not_expressible": ["pregnant or lactating", "first live birth (second if a girl child)"]},
- "ksy": {"criteria": {"states": ["Uttar Pradesh"], "annual_income": {"max": 300000}},
-   "evidence": "The beneficiary's family should be a resident of Uttar Pradesh ... maximum annual family income ... ₹3,00,000.",
-   "not_expressible": ["for girl children; at most two children in the family"]},
- "pmay-u": {"criteria": {"states": ["ALL"], "annual_income": {"max": 1800000}},
-   "evidence": "EWS up to ₹3,00,000 ... MIG-2 between ₹12,00,001 and ₹18,00,000. Must not own a pucca house anywhere in the country.",
-   "not_expressible": ["no pucca house owned by the family", "town must be covered under the scheme"]},
- "pmjdy": {"criteria": {"states": ["ALL"], "age": {"min": 10}},
-   "evidence": "The applicant should be an Indian National. If minors above ten years apply, they will require support from their legal guardians."}
+ "pm-kisan": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "occupation": [
+    "farmer"
+   ]
+  },
+  "evidence": "All landholding farmers' families, which have cultivable land holding in their names are eligible.",
+  "not_expressible": [
+   "exclusions: institutional landholders, income-tax payers, government employees, pensioners >= Rs 10,000/month"
+  ]
+ },
+ "kcc": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "occupation": [
+    "farmer"
+   ]
+  },
+  "evidence": "Farmers - individual/joint borrowers who are owner cultivators; tenant farmers, oral lessees & share croppers; SHGs/JLGs of farmers."
+ },
+ "pmfby": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "occupation": [
+    "farmer"
+   ]
+  },
+  "evidence": "All farmers, including tenant farmers and sharecroppers growing notified crops in notified areas.",
+  "not_expressible": [
+   "notified crops in notified areas only",
+   "apply within the sowing-season window"
+  ]
+ },
+ "apy": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18,
+    "max": 40
+   }
+  },
+  "evidence": "The minimum age of joining APY is 18 years and maximum is 40 years.",
+  "not_expressible": [
+   "not for current or past income-tax payers (from 1 Oct 2022)",
+   "needs a savings bank account"
+  ]
+ },
+ "pmjjby": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18,
+    "max": 50
+   }
+  },
+  "evidence": "The age of the applicant must be between 18 to 50 Years. The applicant must hold an individual bank / post office account."
+ },
+ "pmsby": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18,
+    "max": 70
+   }
+  },
+  "evidence": "Individual bank account holders of participating banks aged between 18 years (completed) and 70 years."
+ },
+ "pmuy": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "gender": "female",
+   "age": {
+    "min": 18
+   },
+   "bpl": true
+  },
+  "evidence": "An adult woman belonging to a poor household and not having an LPG connection in her household. Male member from a household cannot apply.",
+  "not_expressible": [
+   "the household must be poor (SECC 2011, SC/ST, PMAY, AAY or a 14-point declaration), not only BPL card holders",
+   "no LPG connection already in the household"
+  ]
+ },
+ "ignwps": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "gender": "female",
+   "age": {
+    "min": 40,
+    "max": 79
+   },
+   "bpl": true
+  },
+  "evidence": "The applicant must be a widow in the age group of 40-79 years ... household living below the poverty line.",
+  "not_expressible": [
+   "must be a widow"
+  ]
+ },
+ "igndps": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18,
+    "max": 79
+   },
+   "disability": true,
+   "bpl": true
+  },
+  "evidence": "The age of the applicant should be 18 years and above ... disability should be more than 80% ... should belong to the Below Poverty Line. (National Social Assistance Programme sets the upper limit at 79.)",
+  "not_expressible": [
+   "disability must be above 80%"
+  ]
+ },
+ "pmegp": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18
+   }
+  },
+  "evidence": "Any individual, above 18 years of age. There will be no income ceiling.",
+  "not_expressible": [
+   "VIII pass for projects above Rs 10 lakh (manufacturing) / Rs 5 lakh (service)",
+   "new projects only"
+  ]
+ },
+ "pmmy": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "occupation": [
+    "entrepreneur",
+    "self_employed",
+    "street_vendor",
+    "artisan"
+   ]
+  },
+  "evidence": "Eligible borrowers: individuals, proprietary concerns, partnership firms, companies ... for non-farm income-generating micro enterprises.",
+  "not_expressible": [
+   "must not be a loan defaulter"
+  ]
+ },
+ "pm-svanidhi": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "occupation": [
+    "street_vendor"
+   ]
+  },
+  "evidence": "Street vendors in possession of Certificate of Vending / Identity Card issued by Urban Local Bodies, or with a Letter of Recommendation."
+ },
+ "sui": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18
+   }
+  },
+  "evidence": "Finance is provided for Greenfield Enterprises. If the applicant is a male, he must be from SC / ST category. The age of the applicant must be at least 18 years.",
+  "not_expressible": [
+   "men must be SC/ST (an either-or rule: women of any category, or SC/ST men)",
+   "greenfield enterprises only"
+  ]
+ },
+ "mgnrega": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 18
+   }
+  },
+  "evidence": "The applicant must be at least 18 years of age. The applicant must be residing in a Rural Area.",
+  "not_expressible": [
+   "rural residence"
+  ]
+ },
+ "pmmvy": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "gender": "female",
+   "age": {
+    "min": 19
+   }
+  },
+  "evidence": "The applicant should be of at least 19 years old and a pregnant women ... only for the first live birth.",
+  "not_expressible": [
+   "must be pregnant or a new mother",
+   "first live birth (second only if the baby is a girl)"
+  ]
+ },
+ "ksy": {
+  "criteria": {
+   "states": [
+    "Uttar Pradesh"
+   ],
+   "annual_income": {
+    "max": 300000
+   }
+  },
+  "evidence": "The beneficiary's family should be a resident of Uttar Pradesh ... maximum annual family income ... ₹3,00,000.",
+  "not_expressible": [
+   "for girl children; at most two children in the family"
+  ]
+ },
+ "pmay-u": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "annual_income": {
+    "max": 1800000
+   }
+  },
+  "evidence": "EWS up to ₹3,00,000 ... MIG-2 between ₹12,00,001 and ₹18,00,000. Must not own a pucca house anywhere in the country.",
+  "not_expressible": [
+   "no pucca house owned by the family",
+   "town must be covered under the scheme"
+  ]
+ },
+ "pmjdy": {
+  "criteria": {
+   "states": [
+    "ALL"
+   ],
+   "age": {
+    "min": 10
+   }
+  },
+  "evidence": "The applicant should be an Indian National. If minors above ten years apply, they will require support from their legal guardians."
+ }
 }

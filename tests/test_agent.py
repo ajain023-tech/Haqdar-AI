@@ -117,3 +117,14 @@ def test_short_answer_fills_pending_field():
     assert extract_profile("नहीं", {"age": 40}, pending="bpl") == {"age": 40, "bpl": False}
     assert extract_profile("haan ji", pending="disability") == {"disability": True}
     assert extract_profile("mahine ki kamai 8000")["annual_income"] == 96000
+
+
+def test_short_followup_reply_keeps_question_and_language(store):
+    agent = Agent(AgentConfig(use_cache=False))
+    first = agent.run("Main UP ki 45 saal ki vidhwa hoon, kaun si yojana milegi?")
+    assert first["lang"] == "hinglish" and first["follow_up"]["field"] == "bpl"
+    second = agent.run("haan", session_id=first["session_id"])
+    assert second["lang"] == "hinglish"                      # "haan" alone would detect as English
+    assert second["profile"]["bpl"] is True
+    assert second["schemes"][0]["slug"] == "ignwps"           # still about the original question
+    assert second["schemes"][0]["verdict"] == "eligible"
