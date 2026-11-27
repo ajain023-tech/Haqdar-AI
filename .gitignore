@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+data/
+eval/results/
+loadtest/results*
+.DS_Store
+node_modules/

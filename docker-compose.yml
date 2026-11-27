@@ -1,0 +1,37 @@
+# Local stack: Postgres + pgvector, Redis, API.  `docker compose up --build`, then
+#   docker compose exec api python -m scripts.load_hf_dataset --state "Uttar Pradesh" --limit 250
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: haqdar
+      POSTGRES_PASSWORD: haqdar
+      POSTGRES_DB: haqdar
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haqdar -d haqdar"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  api:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://haqdar:haqdar@db:5432/haqdar
+      REDIS_URL: redis://redis:6379/0
+    ports: ["8000:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_started}
+
+volumes:
+  pgdata:
