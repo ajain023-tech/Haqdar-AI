@@ -72,7 +72,7 @@ class EligibilityResponse(BaseModel):
     profile: Dict[str, Any]
     counts: Dict[str, int]
     schemes: List[EligibilityItem]
-    follow_up: Optional[Dict[str, str]] = None
+    follow_up: Optional[Dict[str, Any]] = None
 
 
 class IngestRequest(BaseModel):

@@ -130,7 +130,7 @@ def eligibility(req: EligibilityRequest):
     store = get_store()
     profile = req.profile.model_dump(exclude_none=True)
     schemes = store.list_schemes(state=profile.get("state"))
-    verdicts = evaluate(profile, schemes)
+    verdicts = evaluate(profile, schemes, req.lang)
     by_id = {s["id"]: s for s in schemes}
     counts = {k: sum(v.verdict == k for v in verdicts) for k in ("eligible", "maybe", "no")}
     items = []

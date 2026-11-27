@@ -100,7 +100,7 @@ class Agent:
         # DETECT_LANG + EXTRACT_PROFILE
         lang = lang if lang in ("en", "hi", "hinglish") else detect_lang(message)
         with trace.span("extract_profile", input={"lang": lang}) as sp:
-            prof = extract_profile(message, prev_profile, llm=self.llm)
+            prof = extract_profile(message, prev_profile, llm=self.llm, pending=pending)
             if profile:
                 prof.update({k: v for k, v in profile.items() if v is not None})
             sp["output"] = prof
@@ -132,7 +132,7 @@ class Agent:
         query = message
         if r.intent == "find_schemes" and self.cfg.use_rules:
             with trace.span("rules") as sp:
-                verdicts = evaluate(prof, self.store.list_schemes(state=prof.get("state")))
+                verdicts = evaluate(prof, self.store.list_schemes(state=prof.get("state")), lang)
                 follow_up = pick_followup(verdicts, lang, asked)
                 # Rules only *exclude*: retrieval searches every scheme not ruled out, and the
                 # eligible/maybe ordering decides the cards. (Cutting to a top-N here drops the right
@@ -264,7 +264,7 @@ class Agent:
             if not s:
                 continue
             if v is None and prof:
-                v = evaluate(prof, [s])[0]
+                v = evaluate(prof, [s], ans.lang)[0]
             cards.append({
                 "slug": s["slug"], "name": s["name"], "name_hi": s.get("name_hi"), "state": s.get("state"),
                 "category": s.get("category"),
