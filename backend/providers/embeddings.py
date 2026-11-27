@@ -37,7 +37,7 @@ class GeminiEmbedder(Embedder):
         self.api_key = api_key
         self.model = model
         self.dim = dim
-        self.client = httpx.Client(timeout=60.0)
+        self.client = httpx.Client(timeout=60.0, headers={"x-goog-api-key": api_key})
 
     def _batch(self, texts: List[str], task: str) -> List[List[float]]:
         url = f"{GEMINI_BASE}/models/{self.model}:batchEmbedContents"
@@ -48,7 +48,7 @@ class GeminiEmbedder(Embedder):
             "outputDimensionality": self.dim,
         } for t in texts]}
         for attempt in range(5):
-            r = self.client.post(url, params={"key": self.api_key}, json=body)
+            r = self.client.post(url, json=body)
             if r.status_code == 429:  # free-tier rate limit: back off and retry
                 time.sleep(2 ** attempt)
                 continue

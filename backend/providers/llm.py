@@ -56,7 +56,8 @@ class GeminiLLM(LLM):
     def __init__(self, api_key: str, model: str, timeout: float = 60.0):
         self.api_key = api_key
         self.model = model
-        self.client = httpx.Client(timeout=timeout)
+        # Key in a header, never in the URL, so it can't leak into logs or error messages.
+        self.client = httpx.Client(timeout=timeout, headers={"x-goog-api-key": api_key})
 
     def _body(self, prompt: str, system: Optional[str], temperature: float, json_mode: bool) -> Dict[str, Any]:
         body: Dict[str, Any] = {
@@ -84,8 +85,7 @@ class GeminiLLM(LLM):
 
     def complete(self, prompt, system=None, temperature=0.2, json_mode=False) -> str:
         url = f"{GEMINI_BASE}/models/{self.model}:generateContent"
-        r = self.client.post(url, params={"key": self.api_key},
-                             json=self._body(prompt, system, temperature, json_mode))
+        r = self.client.post(url, json=self._body(prompt, system, temperature, json_mode))
         r.raise_for_status()
         payload = r.json()
         self._usage(payload)
@@ -93,7 +93,7 @@ class GeminiLLM(LLM):
 
     def stream(self, prompt, system=None, temperature=0.2) -> Iterator[str]:
         url = f"{GEMINI_BASE}/models/{self.model}:streamGenerateContent"
-        with self.client.stream("POST", url, params={"key": self.api_key, "alt": "sse"},
+        with self.client.stream("POST", url, params={"alt": "sse"},
                                 json=self._body(prompt, system, temperature, False)) as r:
             r.raise_for_status()
             last: Dict[str, Any] = {}
