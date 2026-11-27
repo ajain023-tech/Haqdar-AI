@@ -62,8 +62,17 @@ def test_search_and_updates(client):
 
 def test_admin_requires_token(client):
     assert client.post("/admin/ingest", json={"source": "hf"}).status_code == 401
-    assert client.post("/admin/ingest", json={"source": "scraper"},
-                       headers={"X-Admin-Token": "test-admin"}).status_code == 501
+
+
+def test_admin_ingest_runs_scraper_refresh(client, monkeypatch):
+    import ingest.refresh
+    calls = []
+    monkeypatch.setattr(ingest.refresh, "run", lambda slugs=None: calls.append(slugs) or {"added": 0})
+    r = client.post("/admin/ingest", json={"source": "scraper", "slugs": ["pm-kisan"]},
+                    headers={"X-Admin-Token": "test-admin"})
+    assert r.status_code == 202 and calls == [["pm-kisan"]]
+    status = client.get("/admin/ingest", headers={"X-Admin-Token": "test-admin"}).json()
+    assert status["last"]["ok"] is True
 
 
 def test_voice_without_provider_uses_transcript(client):

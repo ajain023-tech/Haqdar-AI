@@ -95,3 +95,25 @@ def test_partial_name_overlap_is_still_refused(store):
 def test_hindi_question_found_via_english_rewrite(store):
     out = Agent(AgentConfig(use_cache=False)).run("पति की मृत्यु के बाद गरीब महिला को पेंशन कैसे मिलेगी?")
     assert out["retrieval"]["hits"][0]["slug"] == "ignwps"
+
+
+def test_reasons_in_user_language(store):
+    schemes = [s for s in store.list_schemes() if s["slug"] == "pmuy"]
+    v = evaluate({"gender": "male", "age": 30, "bpl": True}, schemes, "hi")[0]
+    assert v.verdict == "no" and "महिला" in v.reasons[0]
+
+
+def test_followup_prefers_field_that_resolves_most(store):
+    from backend.rules import pick_followup
+    from backend.rules.engine import Verdict
+    vs = [Verdict(1, "a", "A", "maybe", missing=["bpl"]), Verdict(2, "b", "B", "maybe", missing=["bpl"]),
+          Verdict(3, "c", "C", "maybe", missing=["age", "gender", "occupation"])]
+    fu = pick_followup(vs, "hinglish")
+    assert fu["field"] == "bpl" and fu["options"] == ["yes", "no"] and fu["affects"] == 2
+    assert pick_followup(vs, "en", asked=["bpl"])["field"] == "age"
+
+
+def test_short_answer_fills_pending_field():
+    assert extract_profile("नहीं", {"age": 40}, pending="bpl") == {"age": 40, "bpl": False}
+    assert extract_profile("haan ji", pending="disability") == {"disability": True}
+    assert extract_profile("mahine ki kamai 8000")["annual_income"] == 96000
