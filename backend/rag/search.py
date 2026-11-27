@@ -71,7 +71,11 @@ def retrieve(query: str, mode: str = "rerank", filters: Optional[Filters] = None
     queries = [query] + ([alt_query] if alt_query and alt_query.strip() != query.strip() else [])
 
     t0 = time.perf_counter()
-    qvecs = [embedder.embed_query(q) for q in queries]
+    try:
+        qvecs = [embedder.embed_query(q) for q in queries]
+    except Exception:  # noqa: BLE001 - embedding quota/outage: keyword search still answers
+        qvecs = []
+        timings["embed_failed"] = 1.0
     timings["embed"] = (time.perf_counter() - t0) * 1000
 
     t0 = time.perf_counter()
@@ -81,7 +85,7 @@ def retrieve(query: str, mode: str = "rerank", filters: Optional[Filters] = None
         for h in lst:
             h.scores["vector"] = h.score
 
-    if mode == "vector":
+    if mode == "vector" and vec_lists:
         merged = vec_lists[0] if len(vec_lists) == 1 else reciprocal_rank_fusion(*vec_lists)
         hits = _dedupe_per_scheme(merged)[:top_k]
         top = hits[0].scores.get("vector", hits[0].score) if hits else 0.0
@@ -98,7 +102,7 @@ def retrieve(query: str, mode: str = "rerank", filters: Optional[Filters] = None
     if mode == "hybrid":
         hits = _dedupe_per_scheme(fused)[:top_k]
         # RRF scores are rank-based; map the top one onto [0, 1] relative to a hit ranked #1 everywhere.
-        best = len(vec_lists + kw_lists) / (RRF_K + 1)
+        best = max(len(vec_lists + kw_lists), 1) / (RRF_K + 1)
         top = (hits[0].score / best) if hits else 0.0
         return RetrievalResult(hits, mode, top, timings)
 

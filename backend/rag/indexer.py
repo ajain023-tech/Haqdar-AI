@@ -9,7 +9,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from backend.providers.embeddings import Embedder, get_embedder
+from backend.providers.embeddings import Embedder, EmbeddingQuotaExceeded, get_embedder
 from backend.rag.chunking import Chunk, chunk_scheme
 from backend.rag.store import Store, get_store
 
@@ -45,7 +45,12 @@ def index_scheme(scheme: Dict[str, Any], sections_by_lang: Dict[str, Dict[str, s
     # Embed BEFORE writing the row: if embedding fails (rate limit, outage), nothing is saved and the
     # next run retries this scheme instead of seeing an "unchanged" hash with no chunks behind it.
     chunks = build_chunks(scheme, sections_by_lang)
-    embeddings = embedder.embed_documents([c.text for c in chunks]) if chunks else []
+    try:
+        embeddings = embedder.embed_documents([c.text for c in chunks]) if chunks else []
+    except EmbeddingQuotaExceeded:
+        # Out of embedding quota: save the text now (keyword search works at once) and let
+        # scripts/backfill_embeddings.py add the vectors when quota is back.
+        embeddings = [None] * len(chunks)
     sid, status = store.upsert_scheme(scheme, raw_text=raw)
     store.replace_chunks(sid, chunks, embeddings)
     return "updated" if status == "unchanged" else status

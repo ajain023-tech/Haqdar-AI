@@ -151,3 +151,26 @@ def test_fallback_llm_moves_to_next_model():
             return "fine"
 
     assert FallbackLLM([Limited(), Ok()]).complete("hi") == "fine"
+
+
+def test_search_works_without_embeddings():
+    from backend.providers.embeddings import EmbeddingQuotaExceeded, HashEmbedder
+    from backend.rag.indexer import index_scheme
+    from backend.rag.store import MemoryStore
+
+    class OutOfQuota(HashEmbedder):
+        def embed_documents(self, texts):
+            raise EmbeddingQuotaExceeded("daily cap")
+
+        def embed_query(self, text):
+            raise EmbeddingQuotaExceeded("daily cap")
+
+    store = MemoryStore()
+    index_scheme({"slug": "pmuy", "name": "Pradhan Mantri Ujjwala Yojana"},
+                 {"en": {"details": "Free LPG connection for women from poor households."}},
+                 store=store, embedder=OutOfQuota())
+    assert len(store.chunks_without_embeddings()) == 1          # text saved, vector pending
+    res = retrieve("LPG connection for women", mode="hybrid", store=store, embedder=OutOfQuota())
+    assert res.hits and res.hits[0].slug == "pmuy"               # keyword search still answers
+    store.set_embeddings([(c["id"], HashEmbedder().embed_query(c["text"])) for c in store.chunks_without_embeddings()])
+    assert store.chunks_without_embeddings() == []

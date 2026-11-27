@@ -99,6 +99,13 @@ class Store:
     def keyword_search(self, query: str, k: int, filters: Filters) -> List[Hit]:
         raise NotImplementedError
 
+    def chunks_without_embeddings(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """[{"id", "text"}] of chunks saved while embeddings were out of quota."""
+        raise NotImplementedError
+
+    def set_embeddings(self, pairs: List[Tuple[int, List[float]]]) -> int:
+        raise NotImplementedError
+
     # --- sessions, change log ---
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         raise NotImplementedError
@@ -281,6 +288,15 @@ class MemoryStore(Store):
         scored.sort(key=lambda x: x[0], reverse=True)
         return [self._hit(c, s) for s, c in scored[:k]]
 
+    def chunks_without_embeddings(self, limit=100):
+        return [{"id": c["id"], "text": c["text"]} for c in self.chunks.values() if c["embedding"] is None][:limit]
+
+    def set_embeddings(self, pairs):
+        for cid, emb in pairs:
+            if cid in self.chunks:
+                self.chunks[cid]["embedding"] = emb
+        return len(pairs)
+
     # sessions / change log
     def get_session(self, session_id):
         s = self.sessions.get(session_id)
@@ -415,7 +431,8 @@ class PgStore(Store):
                     cur.executemany(
                         "INSERT INTO chunks (scheme_id, lang, section, page, text, embedding) "
                         "VALUES (%s, %s, %s, %s, %s, %s)",
-                        [(scheme_id, c.lang, c.section, c.page, c.text, np.array(e, dtype=np.float32))
+                        [(scheme_id, c.lang, c.section, c.page, c.text,
+                          np.array(e, dtype=np.float32) if e is not None else None)
                          for c, e in zip(chunks, embeddings)])
         return len(chunks)
 
@@ -456,7 +473,8 @@ class PgStore(Store):
         where = self._where(filters, args)
         args += [q, k]
         sql = (f"{self._SELECT}, 1 - (c.embedding <=> %s) AS score FROM chunks c JOIN schemes s "
-               f"ON s.id = c.scheme_id WHERE {where} ORDER BY c.embedding <=> %s LIMIT %s")
+               f"ON s.id = c.scheme_id WHERE c.embedding IS NOT NULL AND {where} "
+               f"ORDER BY c.embedding <=> %s LIMIT %s")
         with self.pool.connection() as conn:
             # Pre-filtered HNSW: let the index scan further so filters don't starve the result.
             conn.execute("SET hnsw.ef_search = 100")
@@ -476,6 +494,20 @@ class PgStore(Store):
                f"ORDER BY score DESC LIMIT %s")
         with self.pool.connection() as conn:
             return self._hits(conn.execute(sql, args).fetchall())
+
+    def chunks_without_embeddings(self, limit=100):
+        with self.pool.connection() as conn:
+            rows = conn.execute("SELECT id, text FROM chunks WHERE embedding IS NULL ORDER BY id LIMIT %s",
+                                (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def set_embeddings(self, pairs):
+        import numpy as np
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.executemany("UPDATE chunks SET embedding = %s WHERE id = %s",
+                                [(np.array(e, dtype=np.float32), cid) for cid, e in pairs])
+        return len(pairs)
 
     def get_session(self, session_id):
         with self.pool.connection() as conn:

@@ -18,6 +18,10 @@ from backend.core.usage import record_usage
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 
+class EmbeddingQuotaExceeded(Exception):
+    """The embedding API refused for quota reasons and waiting isn't worth it (daily cap, or a live query)."""
+
+
 class Embedder:
     name = "base"
     dim = 768
@@ -43,7 +47,7 @@ class GeminiEmbedder(Embedder):
         self._sent: List[tuple] = []  # (timestamp, n_texts)
         self.client = httpx.Client(timeout=60.0, headers={"x-goog-api-key": api_key})
 
-    def _batch(self, texts: List[str], task: str) -> List[List[float]]:
+    def _batch(self, texts: List[str], task: str, wait: bool = True) -> List[List[float]]:
         url = f"{GEMINI_BASE}/models/{self.model}:batchEmbedContents"
         body = {"requests": [{
             "model": f"models/{self.model}",
@@ -54,8 +58,12 @@ class GeminiEmbedder(Embedder):
         for attempt in range(8):
             self._pace(len(texts))
             r = self.client.post(url, json=body)
-            if r.status_code == 429:  # rate limit: wait as long as the API asks, then retry
-                time.sleep(_retry_delay(r, default=min(60, 5 * 2 ** attempt)))
+            if r.status_code == 429:
+                delay = _retry_delay(r, default=min(60, 5 * 2 ** attempt))
+                # Per-minute limit: wait it out (batch jobs only). Daily cap or a live query: give up now.
+                if not wait or delay > 90:
+                    raise EmbeddingQuotaExceeded(f"embedding quota exceeded (retry in {int(delay)}s)")
+                time.sleep(delay)
                 continue
             r.raise_for_status()
             record_usage("embed", tokens_in=sum(len(t) // 4 for t in texts), calls=1)
@@ -79,7 +87,7 @@ class GeminiEmbedder(Embedder):
         return out
 
     def embed_query(self, text: str) -> List[float]:
-        return self._batch([text], "RETRIEVAL_QUERY")[0]
+        return self._batch([text], "RETRIEVAL_QUERY", wait=False)[0]  # a user is waiting: never sleep
 
 
 _TOKEN = re.compile(r"[\wऀ-ॿ]+", re.UNICODE)
