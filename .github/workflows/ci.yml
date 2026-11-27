@@ -1,0 +1,62 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: haqdar
+          POSTGRES_PASSWORD: haqdar
+          POSTGRES_DB: haqdar
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U haqdar" --health-interval 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://haqdar:haqdar@localhost:5432/haqdar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Unit tests
+        run: pytest -q
+      - name: Offline eval (in-memory corpus, hash embeddings, lexical reranker)
+        # Catches retrieval regressions before the demo. Real-model numbers come from the
+        # eval-live job below, which needs the GEMINI_API_KEY secret.
+        run: python -m eval.run_eval --corpus eval/corpus_sample.jsonl --setups 1,2,3,4 --min-recall 0.85
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-offline
+          path: eval/results/
+
+  eval-live:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      RERANKER_URL: ${{ secrets.RERANKER_URL }}
+      RERANKER_TOKEN: ${{ secrets.RERANKER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Live eval (Gemini + reranker), skipped without a key
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then echo "no GEMINI_API_KEY secret; skipping"; exit 0; fi
+          python -m eval.run_eval --corpus eval/corpus_sample.jsonl --setups 3,4 --min-recall 0.7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-live
+          path: eval/results/

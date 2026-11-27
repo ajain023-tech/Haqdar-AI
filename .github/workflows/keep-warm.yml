@@ -1,0 +1,17 @@
+name: keep-warm
+# Render's free tier sleeps after ~15 min idle. Ping /health every 10 minutes during demo hours (IST 08:00-23:00).
+on:
+  schedule:
+    - cron: "*/10 2-17 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping API
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then echo "set the API_URL repository variable"; exit 0; fi
+          curl -fsS --max-time 60 "$API_URL/health" || curl -fsS --max-time 90 "$API_URL/health"
