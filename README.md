@@ -9,6 +9,9 @@ only explains the result and must cite a retrieved chunk for every claim, so it 
 > Unofficial assistant. Final eligibility is decided by the department; apply via the official link.
 > **Data: myScheme.gov.in, Govt. of India.**
 
+**Live:** app **https://haqdar-ai-two.vercel.app** · API **https://haqdar-api.vercel.app/health**
+(free tiers: answers take ~10–20 s, and the first request after idle is slower while the server wakes up).
+
 ---
 
 ## Architecture
@@ -190,9 +193,16 @@ bootstrap criteria it is 46%; with the drafted criteria it is 98%. The one miss 
 needs widowhood, which isn't a profile field, so the engine says "eligible" where the right answer is "maybe". Cards
 show such conditions under "Also check" (`also_check`).
 
-**Live run** (Gemini embeddings + Gemini Flash + bge reranker): fill in after setting `GEMINI_API_KEY` and
-`RERANKER_URL`, re-indexing, then `python -m eval.run_eval`. The `eval-live` CI job runs it on pushes to `main`
-when the `GEMINI_API_KEY` secret is set.
+**Live run** (Gemini embeddings + flash-lite + Gemini reranking, Supabase): run once every chunk has a vector
+(`python -m scripts.backfill_embeddings` reports what's left). Within the free tier, use the economical mode:
+
+```bash
+LLM_WAIT_ON_LIMIT=1 python -m eval.run_eval --retrieval-only 1,2,3 --answer-sample 30
+```
+
+Setups 1–3 measure recall@5 only; setup 4 answers 30 questions (stratified 12/9/9 by language) plus the 10 trick
+questions. Status on 27 Nov 2026: 215 schemes loaded, 954 of 1,799 chunks still waiting for vectors (the daily
+embedding cap), so the live table is pending.
 
 | Setup | Recall@5 | Faithfulness | Eligibility accuracy | Refusal (trick) | False refusals | p95 latency (s) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -230,8 +240,8 @@ The live setup is two Vercel projects (API + frontend) on free tiers:
 | --- | --- | --- |
 | Database | Supabase (Postgres 17 + pgvector), **Session pooler** URL | the direct `db.<ref>.supabase.co` host is IPv6-only |
 | Cache + rate limit | Upstash Redis via its REST API (`UPSTASH_REDIS_REST_URL` / `_TOKEN`) | `REDIS_URL` also works |
-| LLM | Gemini: `gemini-3.5-flash` writes answers, `gemini-3.5-flash-lite` does profile / rewrite / rerank / self-check | free tier: 5 and 15 requests/min per model; each falls back to the other |
-| Embeddings | `gemini-embedding-001` @ 768 dims | free tier: 100 texts/min; the embedder paces itself |
+| LLM | Gemini `gemini-3.5-flash-lite` for everything, `gemini-3.1-flash-lite` as fallback | measured free tier (27 Nov 2026): flash-lite 15 requests/min; `gemini-3.5-flash` only 5/min and **20/day**, so it isn't used |
+| Embeddings | `gemini-embedding-001` @ 768 dims | free tier: 100 texts/min and **1,000/day**. Over the cap, chunks are saved without vectors (keyword search still works) and `scripts/backfill_embeddings.py` / the nightly job fills them in |
 | Reranker | Gemini (flash-lite) scores the top 20 | the bge Space needs Hugging Face PRO for Docker; `reranker_space/` is ready if you upgrade |
 | API | Vercel Python function ([api/index.py](api/index.py), [vercel.json](vercel.json)) | `render.yaml` + `Dockerfile` remain for Render/Docker hosting |
 | Frontend | Vercel, root directory `frontend` | `NEXT_PUBLIC_API_URL` = the API URL |
