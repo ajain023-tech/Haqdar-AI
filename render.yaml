@@ -1,0 +1,31 @@
+# Render blueprint: free web service for the API. Database = Supabase/Neon, cache = Upstash (set the URLs as secrets).
+services:
+  - type: web
+    name: haqdar-api
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RERANKER_URL
+        sync: false
+      - key: RERANKER_TOKEN
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://haqdar-ai.vercel.app,http://localhost:3000
+      - key: RATE_LIMIT_PER_MIN
+        value: "30"
