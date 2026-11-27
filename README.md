@@ -103,6 +103,27 @@ python -m scripts.load_hf_dataset --state "Uttar Pradesh" --limit 250 --dump dat
 python -m scripts.load_hf_dataset --from-jsonl data/hf_up.jsonl     # re-index a parsed dump
 ```
 
+**Own scraper (Person B).** [ingest/](ingest/) loads public myScheme scheme pages in headless Chromium, keeps
+the JSON each page fetches while rendering (details, documents, FAQs) plus the rendered text, and caches the raw
+copy with `source_url` and fetch time. It parses fields, extracts criteria (Gemini; regex offline) and indexes
+through the same `index_scheme`. myScheme throttles fast crawls, so it goes one page every 3 s, backs off, and stops
+after 5 errors in a row, keeping what it has (see [docs/day1-decisions.md](docs/day1-decisions.md)).
+
+```bash
+pip install -r ingest/requirements.txt && python -m playwright install chromium
+python -m ingest.scraper --discover --limit 250   # sitemap + seed list -> data/raw/myscheme/
+python -m ingest.refresh                          # daily job: diff, re-extract changed, inactive/stale, change log
+python -m ingest.refresh --offline                # re-process cached pages only
+python -m ingest.verify apply-drafts              # load hand-drafted criteria (ingest/criteria_drafts.json)
+python -m ingest.verify export --top 50           # checklist for hand verification against guideline PDFs
+python -m ingest.verify import verification/checklist.csv
+python -m ingest.verify cross-check --top 50      # flag page vs guideline-PDF disagreements (needs Gemini)
+```
+
+The refresh runs nightly in [daily-refresh.yml](.github/workflows/daily-refresh.yml) (needs the `DATABASE_URL`
+and `GEMINI_API_KEY` secrets). Scheme status: **verified** = checked by hand against the guideline PDF;
+**auto** = extracted, not reviewed; **stale** = not re-checked for 30+ days, or changed after verification.
+
 `eval/corpus_sample.jsonl` is a committed 215-scheme sample (the 20 gold schemes, 150 other central schemes,
 45 UP schemes) so CI and the eval run without network access.
 
@@ -113,7 +134,7 @@ python -m scripts.load_hf_dataset --from-jsonl data/hf_up.jsonl     # re-index a
 | Method | Path | Returns |
 | --- | --- | --- |
 | POST | `/chat` | SSE stream (or JSON with `"stream": false`): answer, citations, scheme cards, follow-up question |
-| POST | `/voice` | multipart `audio` (+ optional edited `transcript`) → transcript + same as `/chat` + `audio_url` |
+| POST | `/voice` | multipart `audio` (+ optional edited `transcript`) → transcript + same as `/chat` + `audio_url`; `transcribe_only=true` → transcript only (for editing), `speak_only=true` → `audio_url` for `transcript` |
 | POST | `/eligibility` | profile → ranked schemes with eligible / maybe / no + reasons + follow-up |
 | POST | `/search` | retrieval only: `{query, state?, category?, mode: vector\|hybrid\|rerank, k}` |
 | GET | `/schemes/{slug}` | scheme detail, documents, source, last checked, verification |
@@ -131,10 +152,10 @@ SSE events, in order:
 | `meta` | `session_id`, `lang`, `intent` (`find_schemes` / `scheme_question`), `profile`, `trace_id` |
 | `token` | `text`: the next piece of the answer as the LLM writes it |
 | `revise` | `text`: the self-check changed the answer, replace what was streamed |
-| `final` | `answer {text, lang, citations[], refused, disclaimer}`, `schemes[]` (cards), `follow_up {field, question}`, `self_check`, `retrieval`, `timings_ms`, `cached` |
+| `final` | `answer {text, lang, citations[], refused, disclaimer}`, `schemes[]` (cards), `follow_up {field, question, affects, options?}`, `self_check`, `retrieval`, `timings_ms`, `cached` |
 | `error` | `detail` |
 
-Scheme card: `slug, name, state, category, verdict, reasons[], missing[], benefits, documents_required[], source_url, last_checked, verification`.
+Scheme card: `slug, name, state, category, verdict, reasons[], missing[], also_check[], benefits, documents_required[], source_url, last_checked, verification`.
 
 Citation: `n, slug, name, section, source_url, last_checked, verification, snippet`.
 
@@ -149,18 +170,25 @@ The same 100 questions (40 Hindi, 30 Hinglish, 30 English; about a third describ
 scheme) plus 10 trick questions about schemes that don't exist run through four setups:
 [eval/build_questions.py](eval/build_questions.py), [eval/run_eval.py](eval/run_eval.py).
 
-**Offline run** (hash embeddings, lexical reranker, extractive answers; 215-scheme corpus, 27 Nov 2026):
+**Offline run** (hash embeddings, lexical reranker, extractive answers; 215-scheme corpus with the drafted criteria
+for the 18 eval schemes; 27 Nov 2026):
 
 | Setup | Recall@5 | Faithfulness | Eligibility accuracy | Refusal (trick) | False refusals | p95 latency (s) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Vector only | 85% | — | — | 10/10 | 0 | 0.08 |
 | + BM25 hybrid | 95% | — | — | 10/10 | 0 | 0.09 |
 | + Reranker | 96% | — | — | 10/10 | 0 | 0.09 |
-| + Rule engine + self-check | 96% | — | pending `eval/profiles.json` | 10/10 | 0 | 0.09 |
+| + Rule engine + self-check | 95% | — | 98% (60/61) | 10/10 | 0 | 0.09 |
 
 Read these as a pipeline regression check, not the headline numbers: offline answers are extractive, so
 faithfulness is trivially 100% and is left out, and latency excludes every network call. Recall by language for
-the last row: Hindi 95%, Hinglish 97%, English 97%.
+the last row: Hindi 93%, Hinglish 97%, English 97%.
+
+Eligibility accuracy compares rule-engine verdicts with hand labels for 10 personas × their candidate schemes
+([eval/profiles.json](eval/profiles.json), labels taken from each scheme's official rules). With only the regex
+bootstrap criteria it is 46%; with the drafted criteria it is 98%. The one miss is a real limit: the widow pension
+needs widowhood, which isn't a profile field, so the engine says "eligible" where the right answer is "maybe". Cards
+show such conditions under "Also check" (`also_check`).
 
 **Live run** (Gemini embeddings + Gemini Flash + bge reranker): fill in after setting `GEMINI_API_KEY` and
 `RERANKER_URL`, re-indexing, then `python -m eval.run_eval`. The `eval-live` CI job runs it on pushes to `main`
@@ -203,7 +231,9 @@ then `python -m loadtest.report --api <api>` prints p50/p95/p99 per endpoint and
 4. **Data:** `curl -X POST $API/admin/ingest -H "X-Admin-Token: $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"source":"hf","state":"Uttar Pradesh","limit":250}'`
 5. **Keep warm:** set the repository variable `API_URL`; [keep-warm.yml](.github/workflows/keep-warm.yml) pings
    `/health` every 10 minutes from 08:00 to 23:00 IST. Ping it yourself before a demo.
-6. **Frontend (Person B):** Vercel, `NEXT_PUBLIC_API_URL=$API`; add the Vercel URL to `CORS_ORIGINS`.
+6. **Frontend:** Vercel, root directory `frontend`, `NEXT_PUBLIC_API_URL=$API`; add the Vercel URL to `CORS_ORIGINS`
+   ([frontend/README.md](frontend/README.md)).
+7. **Daily refresh:** add `DATABASE_URL` and `GEMINI_API_KEY` as repository secrets; the cron runs at 03:30 IST.
 
 Free-tier limits change often: check Gemini, Upstash, Supabase/Neon and Render limits before the demo and use
 `/metrics` as the daily usage log.
@@ -220,25 +250,17 @@ Free-tier limits change often: check Gemini, Upstash, Supabase/Neon and Render l
 | `backend/core/`, `backend/providers/` | Person A | config, cache, rate limit, tracing, usage; LLM, embeddings, reranker, speech interfaces |
 | `eval/`, `loadtest/` | Person A | question set, four-setup eval, Locust |
 | `scripts/load_hf_dataset.py` | Person A | Day 1 bootstrap corpus |
-| `backend/rules/` | **Person B** | rule engine, profile extractor, follow-up picker: **minimal versions only** so the flow runs end to end; signatures are the contract |
-| `ingest/` | **Person B** | myScheme scraper, daily refresh (`ingest/refresh.py` with `run(slugs=None)` is called by `/admin/ingest {"source":"scraper"}`) |
-| `frontend/` | **Person B** | Next.js app |
-| `eval/profiles.json` | **Person B** | 10 personas: `[{"id", "profile": {...}, "labels": {"<slug>": "eligible|maybe|no"}}]` |
-
-Handoff notes for Person B:
-
-* Replace the bodies in `backend/rules/` freely; keep `extract_profile(text, existing, llm)`,
-  `evaluate(profile, schemes) -> List[Verdict]` and `pick_followup(verdicts, lang, asked)`.
-* The scraper should call `backend.rag.indexer.index_scheme(scheme, {"en": sections, "hi": sections_hi})`:
-  it handles `content_hash`, versions and re-embedding. Then `store.mark_inactive(...)` and
-  `store.add_change_log(...)` for the "Recently updated" panel.
-* `scheme.verification` is `auto` for everything loaded so far; set `verified` after hand-checking.
+| `backend/rules/` | Person B | rule engine (reasons in en/hi/hinglish, `also_check`), profile extractor (understands short follow-up replies), follow-up picker (asks for the field that resolves the most results) |
+| `ingest/` | Person B | myScheme scraper, parser, criteria extraction, daily refresh, verification workflow, drafted criteria |
+| `frontend/` | Person B | Next.js installable web app: chat, cards, voice, checklist, updates panel, share link |
+| `eval/profiles.json` | Person B | 10 personas with hand labels |
+| `docs/` | Person B | demo script, pitch deck content, Day 1 decisions and the tasks only a person can do |
 
 ---
 
 ## Data credit and privacy
 
 Scheme data: **myScheme.gov.in, Govt. of India**, via the community dataset
-[shrijayan/gov_myscheme](https://huggingface.co/datasets/shrijayan/gov_myscheme) (Apache-2.0) until the own scraper
-lands. Only eligibility fields reach the LLM or the session store. The source allowlist is `myscheme.gov.in`,
+[shrijayan/gov_myscheme](https://huggingface.co/datasets/shrijayan/gov_myscheme) (Apache-2.0) and the own scraper; the HF data fills the gaps until the scraper has
+re-crawled everything. Only eligibility fields reach the LLM or the session store. The source allowlist is `myscheme.gov.in`,
 `*.gov.in`, `*.nic.in`.
