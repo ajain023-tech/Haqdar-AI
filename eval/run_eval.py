@@ -73,25 +73,33 @@ def p95(values: List[float]) -> float:
 
 
 def run_setup(name: str, cfg: AgentConfig, questions: List[Dict[str, Any]], trick: List[Dict[str, Any]],
-              store: Store) -> Dict[str, Any]:
+              store: Store, answer_ids: Optional[set] = None) -> Dict[str, Any]:
+    """answer_ids: only these questions get full answers (faithfulness, refusal); the rest are retrieval-only.
+    None = answer everything. An empty set = retrieval only for this setup."""
+    from dataclasses import replace
     agent = Agent(cfg, store=store, cache=MemoryCache())
+    retr_agent = Agent(replace(cfg, generate=False, use_selfcheck=False), store=store, cache=MemoryCache())
     hits_at_5, faith, latencies, rows = [], [], [], []
     for q in questions:
+        answered = answer_ids is None or q["id"] in answer_ids
         t0 = time.perf_counter()
-        out = agent.run(q["question"], lang=q["lang"])
+        out = (agent if answered else retr_agent).run(q["question"], lang=q["lang"])
         latencies.append(time.perf_counter() - t0)
         top_slugs = [h["slug"] for h in out["retrieval"]["hits"]][:5]
         hit = any(g in top_slugs for g in q["gold_slugs"])
         hits_at_5.append(hit)
         # Uniform faithfulness judge for every setup (the agent's own self-check only runs in setup 4).
-        if not out["answer"]["refused"]:
+        if answered and not out["answer"]["refused"]:
             judged = selfcheck.check(out["answer"]["text"], agent.last_hits)
             faith.append(judged.faithfulness)
         rows.append({"id": q["id"], "lang": q["lang"], "hit": hit, "gold": q["gold_slugs"], "top": top_slugs,
-                     "refused": out["answer"]["refused"], "latency_s": round(latencies[-1], 3),
+                     "answered": answered, "refused": out["answer"]["refused"] if answered else None,
+                     "latency_s": round(latencies[-1], 3),
                      "answer": out["answer"]["text"][:300]})
 
     refusals = []
+    if answer_ids is not None and not answer_ids:
+        trick = []  # retrieval-only setup: refusals aren't measured
     for t in trick:
         out = agent.run(t["question"], lang=t["lang"])
         refusals.append(out["answer"]["refused"])
@@ -106,8 +114,10 @@ def run_setup(name: str, cfg: AgentConfig, questions: List[Dict[str, Any]], tric
         "recall_at_5": round(sum(hits_at_5) / max(len(hits_at_5), 1), 3),
         "recall_by_lang": {k: round(sum(v) / len(v), 3) for k, v in by_lang.items()},
         "faithfulness": round(statistics.mean(faith), 3) if faith else None,
-        "refusal": f"{sum(refusals)}/{len(refusals)}",
-        "false_refusals": sum(1 for row in rows if not row.get("trick") and row["refused"]),
+        "refusal": f"{sum(refusals)}/{len(refusals)}" if refusals else None,
+        "false_refusals": (sum(1 for row in rows if not row.get("trick") and row["refused"])
+                           if any(row.get("answered") for row in rows if not row.get("trick")) else None),
+        "answered": sum(1 for row in rows if row.get("answered") and not row.get("trick")),
         "p95_latency_s": round(p95(latencies), 2),
         "rows": rows,
     }
@@ -145,8 +155,10 @@ def table(results: List[Dict[str, Any]], elig: Optional[Dict[str, Any]]) -> str:
         if r["setup"].startswith("+ Rule engine"):
             acc = f"{elig['accuracy']:.0%}" if elig and elig.get("accuracy") is not None else "n/a (no profiles.json)"
         faith = f"{r['faithfulness']:.0%}" if r["faithfulness"] is not None else "—"
-        lines.append(f"| {r['setup']} | {r['recall_at_5']:.0%} | {faith} | {acc} | {r['refusal']} | "
-                     f"{r['false_refusals']} | {r['p95_latency_s']} |")
+        refusal = r["refusal"] or "—"
+        false_ref = "—" if r["false_refusals"] is None else f"{r['false_refusals']}/{r['answered']}"
+        lines.append(f"| {r['setup']} | {r['recall_at_5']:.0%} | {faith} | {acc} | {refusal} | "
+                     f"{false_ref} | {r['p95_latency_s']} |")
     return "\n".join(lines)
 
 
@@ -160,6 +172,9 @@ def main() -> None:
     ap.add_argument("--setups", default="1,2,3,4")
     ap.add_argument("--limit", type=int, default=0, help="only the first N questions (smoke runs)")
     ap.add_argument("--min-recall", type=float, default=0.0, help="fail (exit 1) if the last setup is below this")
+    ap.add_argument("--retrieval-only", default="", help="setups that skip answer writing, e.g. 1,2,3 (saves LLM quota)")
+    ap.add_argument("--answer-sample", type=int, default=0,
+                    help="answer only N questions (stratified by language) in the other setups; 0 = all")
     ap.add_argument("--out", default=os.path.join(HERE, "results"))
     args = ap.parse_args()
 
@@ -180,10 +195,13 @@ def main() -> None:
 
     usage.reset()
     results = []
+    retrieval_only = {int(x) for x in args.retrieval_only.split(",") if x.strip()}
+    sample_ids = _stratified_ids(questions, args.answer_sample) if args.answer_sample else None
     for n in [int(x) for x in args.setups.split(",")]:
         name, cfg = SETUPS[n]
         print(f"running setup {n}: {name} ...", file=sys.stderr)
-        results.append(run_setup(name, cfg, questions, trick, store))
+        ids = set() if n in retrieval_only else sample_ids
+        results.append(run_setup(name, cfg, questions, trick, store, answer_ids=ids))
     elig = eligibility_accuracy(store, args.profiles)
 
     md = table(results, elig)
@@ -206,6 +224,19 @@ def main() -> None:
     if args.min_recall and results[-1]["recall_at_5"] < args.min_recall:
         print(f"FAIL: recall@5 {results[-1]['recall_at_5']} < {args.min_recall}", file=sys.stderr)
         sys.exit(1)
+
+
+def _stratified_ids(questions: List[Dict[str, Any]], n: int) -> set:
+    """n questions keeping the 40/30/30 language mix: every k-th question of each language."""
+    by_lang: Dict[str, List[Dict[str, Any]]] = {}
+    for q in questions:
+        by_lang.setdefault(q["lang"], []).append(q)
+    out = set()
+    for qs in by_lang.values():
+        k = max(1, round(n * len(qs) / len(questions)))
+        step = len(qs) / k
+        out |= {qs[int(i * step)]["id"] for i in range(k)}
+    return out
 
 
 def _lang_counts(questions: List[Dict[str, Any]]) -> Dict[str, int]:

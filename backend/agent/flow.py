@@ -28,7 +28,7 @@ from backend.core.lang import detect_lang
 from backend.core.tracing import Trace
 from backend.core.usage import record_query
 from backend.providers.embeddings import Embedder, get_embedder
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, get_fast_llm, get_llm
 from backend.providers.reranker import Reranker, get_reranker
 from backend.rag import answer as answer_mod
 from backend.rag import selfcheck
@@ -49,6 +49,7 @@ class AgentConfig:
     use_selfcheck: bool = True
     use_cache: bool = True
     top_k: int = 5
+    generate: bool = True        # False = retrieval only (cheap eval of recall@5)
 
 
 class Agent:
@@ -61,6 +62,7 @@ class Agent:
         self.cfg = config or AgentConfig()
         self.store = store or get_store()
         self.llm = llm or get_llm()
+        self.fast_llm = llm or get_fast_llm()
         self.embedder = embedder or get_embedder()
         self.reranker = reranker or get_reranker()
         self.cache = cache or get_cache()
@@ -107,14 +109,14 @@ class Agent:
         lang = lang if lang in ("en", "hi", "hinglish") else (
             prev_lang if reply_to_followup and prev_lang else detect_lang(message))
         with trace.span("extract_profile", input={"lang": lang}) as sp:
-            prof = extract_profile(message, prev_profile, llm=self.llm, pending=pending)
+            prof = extract_profile(message, prev_profile, llm=self.fast_llm, pending=pending)
             if profile:
                 prof.update({k: v for k, v in profile.items() if v is not None})
             sp["output"] = prof
 
         # ROUTE
         with trace.span("route") as sp:
-            r = route(ask, self.index, has_pending_followup=bool(pending), llm=self.llm)
+            r = route(ask, self.index, has_pending_followup=bool(pending), llm=self.fast_llm)
             sp["output"] = {"intent": r.intent, "scheme_ids": r.scheme_ids, "named": r.named}
 
         yield {"type": "meta", "session_id": session_id, "lang": lang, "intent": r.intent, "profile": prof,
@@ -155,7 +157,7 @@ class Agent:
 
         # REWRITE (hi / hinglish -> English search query) + RETRIEVE
         with trace.span("rewrite_query") as sp:
-            alt = rewrite_query(ask, lang, llm=self.llm)
+            alt = rewrite_query(ask, lang, llm=self.fast_llm)
             sp["output"] = alt
         with trace.span("retrieve", input={"query": query, "alt_query": alt, "mode": self.cfg.mode}) as sp:
             res = self._retrieve(query, filters, alt)
@@ -171,7 +173,9 @@ class Agent:
         # GENERATE (streamed)
         verdict_dicts = [v.to_dict() for v in verdicts if v.verdict != "no"][:8]
         with trace.span("generate") as sp:
-            if refuse_named:
+            if not self.cfg.generate:
+                pieces = [""]
+            elif refuse_named:
                 pieces = [answer_mod.REFUSAL.get(lang, answer_mod.REFUSAL["en"])]
                 yield {"type": "token", "text": pieces[0]}
             else:
@@ -185,16 +189,16 @@ class Agent:
 
         # SELF_CHECK (+ one re-retrieval)
         check = None
-        if self.cfg.use_selfcheck and not ans.refused:
+        if self.cfg.use_selfcheck and self.cfg.generate and not ans.refused:
             with trace.span("self_check") as sp:
                 streamed = ans.text
-                check = selfcheck.check(ans.text, res.hits, llm=self.llm)
+                check = selfcheck.check(ans.text, res.hits, llm=self.fast_llm)
                 if not check.ok:
                     extra = " ".join(c.claim for c in check.unsupported)[:300]
                     res2 = self._retrieve(f"{query} {extra}", filters, alt)
                     ans2 = answer_mod.generate(ask, res2.hits, lang, res2.top_score, threshold,
                                                verdict_dicts, prof, llm=self.llm)
-                    check2 = selfcheck.check(ans2.text, res2.hits, llm=self.llm)
+                    check2 = selfcheck.check(ans2.text, res2.hits, llm=self.fast_llm)
                     if check2.faithfulness >= check.faithfulness:
                         ans, check, res = ans2, check2, res2
                     if not check.ok:
