@@ -1,13 +1,19 @@
-"""Follow-up picker (contract + minimal version; Person B owns the real one).
+"""Follow-up picker: ask for the one missing field that would change the most results.
 
-Ask for the single missing field that would change the most 'maybe' results.
+Each "maybe" scheme contributes 1/len(missing) to every field it is missing, so a field that is the
+*only* thing standing between the user and a verdict counts fully, while a field that is one of five
+unknowns counts a fifth. Fields already asked in this session are skipped. Ties prefer cheap questions.
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import defaultdict
 from typing import Dict, List, Optional
 
 from backend.rules.engine import Verdict
+
+# Easier questions first when scores tie.
+EASE = ["state", "age", "gender", "occupation", "bpl", "annual_income", "social_category", "land_acres",
+        "disability"]
 
 QUESTIONS: Dict[str, Dict[str, str]] = {
     "state": {"en": "Which state do you live in?", "hi": "आप किस राज्य में रहते हैं?",
@@ -30,13 +36,33 @@ QUESTIONS: Dict[str, Dict[str, str]] = {
     "bpl": {"en": "Does your family have a BPL card?", "hi": "क्या आपके परिवार के पास बीपीएल कार्ड है?",
             "hinglish": "Kya aapke parivar ke paas BPL card hai?"},
 }
+# Quick-reply chips the UI can show under the question.
+OPTIONS: Dict[str, List[str]] = {
+    "gender": ["female", "male"], "bpl": ["yes", "no"], "disability": ["yes", "no"],
+    "social_category": ["General", "OBC", "SC", "ST"],
+}
 
 
-def pick_followup(verdicts: List[Verdict], lang: str = "en", asked: Optional[List[str]] = None) -> Optional[Dict[str, str]]:
+def score_fields(verdicts: List[Verdict], asked: Optional[List[str]] = None) -> Dict[str, float]:
     asked = set(asked or [])
-    counts = Counter(f for v in verdicts if v.verdict == "maybe" for f in v.missing if f not in asked)
-    if not counts:
+    scores: Dict[str, float] = defaultdict(float)
+    for v in verdicts:
+        if v.verdict != "maybe" or not v.missing:
+            continue
+        for f in v.missing:
+            if f not in asked:
+                scores[f] += 1.0 / len(v.missing)
+    return dict(scores)
+
+
+def pick_followup(verdicts: List[Verdict], lang: str = "en", asked: Optional[List[str]] = None) -> Optional[Dict]:
+    scores = score_fields(verdicts, asked)
+    if not scores:
         return None
-    fld, _ = counts.most_common(1)[0]
+    fld = max(scores, key=lambda f: (round(scores[f], 6), -EASE.index(f) if f in EASE else -99))
     q = QUESTIONS.get(fld, {})
-    return {"field": fld, "question": q.get(lang) or q.get("en") or f"Please tell me your {fld}."}
+    out = {"field": fld, "question": q.get(lang) or q.get("en") or f"Please tell me your {fld}.",
+           "affects": int(round(sum(1 for v in verdicts if v.verdict == "maybe" and fld in v.missing)))}
+    if fld in OPTIONS:
+        out["options"] = OPTIONS[fld]
+    return out
