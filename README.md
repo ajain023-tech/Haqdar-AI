@@ -224,19 +224,31 @@ then `python -m loadtest.report --api <api>` prints p50/p95/p99 per endpoint and
 
 ## Deploy
 
-1. **Database:** create a Supabase or Neon project, enable `vector`, run `db/schema.sql`.
-2. **Reranker:** push [reranker_space/](reranker_space/) to a Docker Space on Hugging Face (CPU basic, free).
-3. **API:** Render → *New → Blueprint* → this repo ([render.yaml](render.yaml)); set `DATABASE_URL`, `REDIS_URL`
-   (Upstash), `GEMINI_API_KEY`, `RERANKER_URL`, `LANGFUSE_*`, `SARVAM_API_KEY`.
-4. **Data:** `curl -X POST $API/admin/ingest -H "X-Admin-Token: $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"source":"hf","state":"Uttar Pradesh","limit":250}'`
-5. **Keep warm:** set the repository variable `API_URL`; [keep-warm.yml](.github/workflows/keep-warm.yml) pings
-   `/health` every 10 minutes from 08:00 to 23:00 IST. Ping it yourself before a demo.
-6. **Frontend:** Vercel, root directory `frontend`, `NEXT_PUBLIC_API_URL=$API`; add the Vercel URL to `CORS_ORIGINS`
-   ([frontend/README.md](frontend/README.md)).
-7. **Daily refresh:** add `DATABASE_URL` and `GEMINI_API_KEY` as repository secrets; the cron runs at 03:30 IST.
+The live setup is two Vercel projects (API + frontend) on free tiers:
 
-Free-tier limits change often: check Gemini, Upstash, Supabase/Neon and Render limits before the demo and use
-`/metrics` as the daily usage log.
+| Piece | Where | Notes |
+| --- | --- | --- |
+| Database | Supabase (Postgres 17 + pgvector), **Session pooler** URL | the direct `db.<ref>.supabase.co` host is IPv6-only |
+| Cache + rate limit | Upstash Redis via its REST API (`UPSTASH_REDIS_REST_URL` / `_TOKEN`) | `REDIS_URL` also works |
+| LLM | Gemini: `gemini-3.5-flash` writes answers, `gemini-3.5-flash-lite` does profile / rewrite / rerank / self-check | free tier: 5 and 15 requests/min per model; each falls back to the other |
+| Embeddings | `gemini-embedding-001` @ 768 dims | free tier: 100 texts/min; the embedder paces itself |
+| Reranker | Gemini (flash-lite) scores the top 20 | the bge Space needs Hugging Face PRO for Docker; `reranker_space/` is ready if you upgrade |
+| API | Vercel Python function ([api/index.py](api/index.py), [vercel.json](vercel.json)) | `render.yaml` + `Dockerfile` remain for Render/Docker hosting |
+| Frontend | Vercel, root directory `frontend` | `NEXT_PUBLIC_API_URL` = the API URL |
+| Tracing | Langfuse cloud | |
+
+Steps:
+
+1. **Database:** `python -c "from backend.rag.store import PgStore; from backend.core.config import get_settings; PgStore.init_schema(get_settings().database_url)"`
+2. **Data:** `python -m scripts.load_hf_dataset --from-jsonl eval/corpus_sample.jsonl --state any`, then
+   `python -m ingest.refresh --offline` (scraped pages) and `python -m ingest.verify apply-drafts`.
+3. **API:** from the repo root, `vercel deploy --prod` (project `haqdar-api`), with the variables from `.env`
+   (`DATABASE_URL`, `UPSTASH_*`, `GEMINI_API_KEY`, `LLM_*`, `LANGFUSE_*`, `SARVAM_API_KEY`, `ADMIN_TOKEN`,
+   `RERANK_PROVIDER=llm`, `DB_POOL_MAX=2`, `CORS_ORIGINS`).
+4. **Frontend:** from `frontend/`, `vercel deploy --prod` (project `haqdar-ai`) with `NEXT_PUBLIC_API_URL`.
+5. **GitHub:** secrets `DATABASE_URL`, `GEMINI_API_KEY` (nightly refresh) and variable `API_URL` (keep-warm ping).
+
+Check the free-tier limits on the day (Gemini quotas changed during the build) and use `/metrics` as the usage log.
 
 ---
 
