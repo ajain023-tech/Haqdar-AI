@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, get_fast_llm
 
 PROFILE_FIELDS = ["state", "age", "gender", "occupation", "annual_income", "land_acres",
                   "social_category", "disability", "bpl"]
@@ -164,7 +164,7 @@ def extract_profile(text: str, existing: Optional[Dict[str, Any]] = None, llm: O
 
     `pending` = the field our last follow-up asked about, so "haan" / "नहीं" / "45" fill it in.
     """
-    llm = llm or get_llm()
+    llm = llm or get_fast_llm()
     found = _rules_extract(text)
     if pending:
         found = {**answer_followup(text, pending), **found}

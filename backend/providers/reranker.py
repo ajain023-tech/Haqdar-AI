@@ -14,7 +14,7 @@ import httpx
 
 from backend.core.config import Settings, get_settings
 from backend.core.lang import STOPWORDS
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, get_fast_llm
 
 log = logging.getLogger(__name__)
 _TOKEN = re.compile(r"[\wऀ-ॿ]+", re.UNICODE)
@@ -105,7 +105,7 @@ def get_reranker(settings: Optional[Settings] = None) -> Reranker:
     if _reranker is None:
         s = settings or get_settings()
         chain: List[Reranker] = []
-        llm = get_llm(s)
+        llm = get_fast_llm(s)
         if s.rerank_provider == "space" and s.reranker_url:
             chain.append(SpaceReranker(s.reranker_url, s.reranker_token))
         if s.rerank_provider in ("space", "llm") and not llm.is_fake:

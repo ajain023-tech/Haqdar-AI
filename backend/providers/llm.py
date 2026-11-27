@@ -50,10 +50,28 @@ def parse_json(text: str) -> Any:
     return None
 
 
+class RateLimited(Exception):
+    """The provider refused the call for quota reasons (HTTP 429) or timed out."""
+
+    def __init__(self, message: str, retry_after: float = 0.0):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+def _retry_after(r: httpx.Response) -> float:
+    try:
+        for det in r.json().get("error", {}).get("details", []):
+            if "retryDelay" in det:
+                return float(str(det["retryDelay"]).rstrip("s")) + 1
+    except Exception:  # noqa: BLE001
+        pass
+    return 30.0
+
+
 class GeminiLLM(LLM):
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str, timeout: float = 60.0):
+    def __init__(self, api_key: str, model: str, timeout: float = 25.0):
         self.api_key = api_key
         self.model = model
         # Key in a header, never in the URL, so it can't leak into logs or error messages.
@@ -85,7 +103,12 @@ class GeminiLLM(LLM):
 
     def complete(self, prompt, system=None, temperature=0.2, json_mode=False) -> str:
         url = f"{GEMINI_BASE}/models/{self.model}:generateContent"
-        r = self.client.post(url, json=self._body(prompt, system, temperature, json_mode))
+        try:
+            r = self.client.post(url, json=self._body(prompt, system, temperature, json_mode))
+        except httpx.TimeoutException as exc:
+            raise RateLimited(f"{self.model} timed out") from exc
+        if r.status_code in (429, 503):
+            raise RateLimited(f"{self.model} returned {r.status_code}", _retry_after(r))
         r.raise_for_status()
         payload = r.json()
         self._usage(payload)
@@ -93,8 +116,16 @@ class GeminiLLM(LLM):
 
     def stream(self, prompt, system=None, temperature=0.2) -> Iterator[str]:
         url = f"{GEMINI_BASE}/models/{self.model}:streamGenerateContent"
-        with self.client.stream("POST", url, params={"alt": "sse"},
-                                json=self._body(prompt, system, temperature, False)) as r:
+        try:
+            ctx = self.client.stream("POST", url, params={"alt": "sse"},
+                                     json=self._body(prompt, system, temperature, False))
+            r = ctx.__enter__()
+        except httpx.TimeoutException as exc:
+            raise RateLimited(f"{self.model} timed out") from exc
+        try:
+            if r.status_code in (429, 503):
+                r.read()
+                raise RateLimited(f"{self.model} returned {r.status_code}", _retry_after(r))
             r.raise_for_status()
             last: Dict[str, Any] = {}
             for line in r.iter_lines():
@@ -109,6 +140,65 @@ class GeminiLLM(LLM):
                     yield piece
             if last:
                 self._usage(last)
+        finally:
+            ctx.__exit__(None, None, None)
+
+
+class FallbackLLM(LLM):
+    """Try each model in turn; a rate-limited or timed-out model hands the call to the next one.
+
+    Free-tier quotas are per model, so spreading calls over two models roughly adds their limits.
+    With wait=True (batch jobs: eval, ingestion) it sleeps out the rate limit instead of failing.
+    """
+
+    def __init__(self, chain: List[LLM], wait: bool = False) -> None:
+        self.chain = chain
+        self.wait = wait
+        self.name = "+".join(getattr(m, "model", m.name) for m in chain)
+        self._memo: dict = {}  # deterministic (temperature 0) answers: profile, rewrite, routing, judging
+
+    def complete(self, prompt, system=None, temperature=0.2, json_mode=False) -> str:
+        key = (prompt, system, json_mode) if temperature == 0 else None
+        if key is not None and key in self._memo:
+            return self._memo[key]
+        out = self._complete(prompt, system, temperature, json_mode)
+        if key is not None:
+            if len(self._memo) > 2000:
+                self._memo.clear()
+            self._memo[key] = out
+        return out
+
+    def _complete(self, prompt, system, temperature, json_mode) -> str:
+        import time
+        for _ in range(6 if self.wait else 1):
+            delay = 0.0
+            for m in self.chain:
+                try:
+                    return m.complete(prompt, system=system, temperature=temperature, json_mode=json_mode)
+                except RateLimited as exc:
+                    delay = max(delay, exc.retry_after)
+            if not self.wait:
+                break
+            time.sleep(min(max(delay, 5.0), 65.0))
+        raise RateLimited("all models rate-limited")
+
+    def stream(self, prompt, system=None, temperature=0.2) -> Iterator[str]:
+        last_exc: Optional[Exception] = None
+        for m in self.chain:
+            started = False
+            try:
+                for piece in m.stream(prompt, system=system, temperature=temperature):
+                    started = True
+                    yield piece
+                return
+            except RateLimited as exc:
+                if started:
+                    raise
+                last_exc = exc
+        if self.wait:
+            yield self.complete(prompt, system=system, temperature=temperature)
+            return
+        raise last_exc or RateLimited("all models rate-limited")
 
 
 class FakeLLM(LLM):
@@ -121,20 +211,46 @@ class FakeLLM(LLM):
 
 
 _llm: Optional[LLM] = None
+_fast_llm: Optional[LLM] = None
+
+
+def _wait_mode() -> bool:
+    import os
+    return os.environ.get("LLM_WAIT_ON_LIMIT", "0") == "1"
 
 
 def get_llm(settings: Optional[Settings] = None) -> LLM:
+    """The answer-writing model (quality first), falling back to the fast model when rate-limited."""
     global _llm
     if _llm is None:
         s = settings or get_settings()
         if s.llm_provider == "gemini" and s.gemini_api_key:
-            _llm = GeminiLLM(s.gemini_api_key, s.llm_model)
+            chain: List[LLM] = [GeminiLLM(s.gemini_api_key, s.llm_model)]
+            if s.llm_fast_model and s.llm_fast_model != s.llm_model:
+                chain.append(GeminiLLM(s.gemini_api_key, s.llm_fast_model))
+            _llm = FallbackLLM(chain, wait=_wait_mode())
         else:
             _llm = FakeLLM()
     return _llm
 
 
-def set_llm(llm: Optional[LLM]) -> None:
-    """Override the process-wide LLM (tests, eval)."""
-    global _llm
+def get_fast_llm(settings: Optional[Settings] = None) -> LLM:
+    """Model for small structured jobs (profile, rewrite, routing, rerank, self-check)."""
+    global _fast_llm
+    if _fast_llm is None:
+        s = settings or get_settings()
+        if s.llm_provider == "gemini" and s.gemini_api_key:
+            chain: List[LLM] = [GeminiLLM(s.gemini_api_key, s.llm_fast_model or s.llm_model)]
+            if s.llm_fast_model and s.llm_fast_model != s.llm_model:
+                chain.append(GeminiLLM(s.gemini_api_key, s.llm_model))
+            _fast_llm = FallbackLLM(chain, wait=_wait_mode())
+        else:
+            _fast_llm = FakeLLM()
+    return _fast_llm
+
+
+def set_llm(llm: Optional[LLM], fast: Optional[LLM] = None) -> None:
+    """Override the process-wide LLMs (tests, eval). `fast` defaults to the same object."""
+    global _llm, _fast_llm
     _llm = llm
+    _fast_llm = fast if fast is not None else llm

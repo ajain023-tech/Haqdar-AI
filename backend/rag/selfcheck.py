@@ -10,7 +10,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, get_fast_llm
 from backend.rag.answer import is_refusal
 from backend.rag.store import Hit, tokenize
 
@@ -87,7 +87,7 @@ def _llm_judge(llm: LLM, claims: List[str], hits: List[Hit]) -> Optional[List[bo
 
 
 def check(answer_text: str, hits: List[Hit], llm: Optional[LLM] = None) -> SelfCheckResult:
-    llm = llm or get_llm()
+    llm = llm or get_fast_llm()
     if is_refusal(answer_text):
         return SelfCheckResult(ok=True, faithfulness=1.0)
     claims = split_claims(answer_text)

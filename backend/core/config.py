@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import List
+from urllib.parse import quote
 
 
 def _env(name: str, default: str = "") -> str:
@@ -27,6 +29,23 @@ def _load_dotenv(path: str = ".env") -> None:
             os.environ.setdefault(k.strip(), v.split(" #", 1)[0].strip())
 
 
+_DSN = re.compile(r"^(postgres(?:ql)?://)([^:/@]+):(.*)@([^@/]+)(/.*)?$", re.S)
+
+
+def normalize_dsn(dsn: str) -> str:
+    """Percent-encode the password in a Postgres URL, so passwords with @ # / ? : % work as pasted.
+
+    Splits at the LAST "@" (hosts never contain one). Already-encoded passwords are left alone.
+    """
+    m = _DSN.match(dsn or "")
+    if not m:
+        return dsn
+    scheme, user, password, host, rest = m.groups()
+    if re.search(r"%[0-9A-Fa-f]{2}", password):
+        return dsn
+    return f"{scheme}{user}:{quote(password, safe='')}@{host}{rest or ''}"
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str = ""
@@ -37,6 +56,7 @@ class Settings:
     gemini_api_key: str = ""
     llm_provider: str = "gemini"
     llm_model: str = "gemini-3.5-flash"
+    llm_fast_model: str = "gemini-3.5-flash-lite"
     embed_provider: str = "gemini"
     embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
@@ -66,13 +86,14 @@ def get_settings() -> Settings:
     _load_dotenv()
     key = _env("GEMINI_API_KEY")
     return Settings(
-        database_url=_env("DATABASE_URL"),
+        database_url=normalize_dsn(_env("DATABASE_URL")),
         redis_url=_env("REDIS_URL"),
         upstash_rest_url=_env("UPSTASH_REDIS_REST_URL"),
         upstash_rest_token=_env("UPSTASH_REDIS_REST_TOKEN"),
         gemini_api_key=key,
         llm_provider=_env("LLM_PROVIDER", "gemini" if key else "fake"),
         llm_model=_env("LLM_MODEL", "gemini-3.5-flash"),
+        llm_fast_model=_env("LLM_FAST_MODEL", "gemini-3.5-flash-lite"),
         embed_provider=_env("EMBED_PROVIDER", "gemini" if key else "hash"),
         embed_model=_env("EMBED_MODEL", "gemini-embedding-001"),
         embed_dim=int(_env("EMBED_DIM", "768")),

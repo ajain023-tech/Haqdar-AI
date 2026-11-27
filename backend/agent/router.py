@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from backend.core.lang import STOPWORDS
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, get_fast_llm
 from backend.rag.store import Store, tokenize
 
 # Hindi / Hinglish / colloquial names for the most-asked schemes -> myScheme slug.
@@ -158,7 +158,7 @@ def route(message: str, index: SchemeIndex, has_pending_followup: bool = False,
         return Route("find_schemes")
     if has_pending_followup and len(message.split()) <= 8:
         return Route("find_schemes")  # short reply to our follow-up question
-    llm = llm or get_llm()
+    llm = llm or get_fast_llm()
     if not llm.is_fake:
         try:
             data = llm.complete_json(

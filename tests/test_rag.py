@@ -120,3 +120,34 @@ def test_glossary_rewrite():
     from backend.rag.query import glossary_rewrite, rewrite_query
     assert "widow" in glossary_rewrite("विधवा पेंशन कितनी है?") and "pension" in glossary_rewrite("विधवा पेंशन")
     assert rewrite_query("What is PM Kisan?", "en") is None
+
+
+def test_rate_limited_answer_falls_back_to_quoting_sources():
+    from backend.providers.llm import LLM, RateLimited
+    from backend.rag.answer import stream_generate
+
+    class Limited(LLM):
+        def complete(self, *a, **k):
+            raise RateLimited("quota")
+
+        def stream(self, *a, **k):
+            raise RateLimited("quota")
+            yield ""  # pragma: no cover
+
+    hits = [_hit(1, text="Farmers get Rs 6000 per year in three instalments.")]
+    assert "[1]" in generate("How much do farmers get?", hits, "en", 1.0, 0.1, llm=Limited()).text
+    assert "[1]" in "".join(stream_generate("How much do farmers get?", hits, "en", 1.0, 0.1, llm=Limited()))
+
+
+def test_fallback_llm_moves_to_next_model():
+    from backend.providers.llm import LLM, FallbackLLM, RateLimited
+
+    class Limited(LLM):
+        def complete(self, *a, **k):
+            raise RateLimited("quota")
+
+    class Ok(LLM):
+        def complete(self, *a, **k):
+            return "fine"
+
+    assert FallbackLLM([Limited(), Ok()]).complete("hi") == "fine"

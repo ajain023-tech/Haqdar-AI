@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 
 from backend.core.lang import LANG_NAMES, STOPWORDS
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, RateLimited, get_llm
 from backend.rag.store import Hit, tokenize
 
 REFUSAL = {
@@ -123,7 +123,10 @@ def generate(question: str, hits: List[Hit], lang: str, top_score: float, thresh
     if llm.is_fake:
         text = extractive_answer(question, hits, lang)
     else:
-        text = llm.complete(build_prompt(question, hits, lang, verdicts, profile), system=SYSTEM).strip()
+        try:
+            text = llm.complete(build_prompt(question, hits, lang, verdicts, profile), system=SYSTEM).strip()
+        except RateLimited:
+            text = extractive_answer(question, hits, lang)  # quota exhausted: quote the sources instead
     return finalize(text, hits, lang)
 
 
@@ -138,7 +141,14 @@ def stream_generate(question: str, hits: List[Hit], lang: str, top_score: float,
     if llm.is_fake:
         yield extractive_answer(question, hits, lang)
         return
-    yield from llm.stream(build_prompt(question, hits, lang, verdicts, profile), system=SYSTEM)
+    started = False
+    try:
+        for piece in llm.stream(build_prompt(question, hits, lang, verdicts, profile), system=SYSTEM):
+            started = True
+            yield piece
+    except RateLimited:
+        if not started:
+            yield extractive_answer(question, hits, lang)  # quota exhausted: quote the sources instead
 
 
 def is_refusal(text: str) -> bool:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from backend.providers.llm import LLM, get_llm
+from backend.providers.llm import LLM, get_fast_llm
 
 # Common welfare vocabulary (Devanagari + Hinglish) -> English terms used on myScheme pages.
 GLOSSARY = {
@@ -63,7 +63,7 @@ def rewrite_query(question: str, lang: str, llm: Optional[LLM] = None) -> Option
     """English search query for a hi / hinglish question, or None for English questions."""
     if lang == "en":
         return None
-    llm = llm or get_llm()
+    llm = llm or get_fast_llm()
     if not llm.is_fake:
         try:
             text = llm.complete(
