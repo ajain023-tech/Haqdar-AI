@@ -40,7 +40,7 @@ function Result() {
         <ul className="mt-1 flex flex-wrap gap-1.5">
           {Object.entries(profile).map(([k, v]) => (
             <li key={k} className="rounded-lg bg-stone-100 px-2 py-1">
-              {FIELD_LABELS[k]?.[lang] ?? k}: {String(v)}
+              {FIELD_LABELS[k]?.[lang] ?? k}: {typeof v === "boolean" ? (v ? t.yes : t.no_) : String(v)}
             </li>
           ))}
         </ul>
@@ -48,11 +48,18 @@ function Result() {
       {error && <p className="card text-rose-800">{t.errNetwork}</p>}
       {!data && !error && <p className="animate-pulse text-stone-500">{t.thinking}</p>}
       {data && ORDER.filter((v) => v !== "no").map((v) => {
-        const items = data.schemes.filter((s) => s.verdict === v);
+        // the same scheme can be listed under several slugs: show each name once
+        const seen = new Set<string>();
+        const items = data.schemes.filter((s) => {
+          const key = s.name.trim().toLowerCase();
+          if (s.verdict !== v || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         if (!items.length) return null;
         return (
           <section key={v} className="space-y-2">
-            <h2 className="font-semibold">{t[v]} ({data.counts[v]})</h2>
+            <h2 className="font-semibold">{t[v]} ({items.length})</h2>
             {items.slice(0, 20).map((s) => (
               <Link key={s.slug} href={`/scheme/${encodeURIComponent(s.slug)}`} className="card block hover:border-emerald-400">
                 <p className="font-medium">{s.name}</p>

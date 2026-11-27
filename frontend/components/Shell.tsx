@@ -28,9 +28,9 @@ export function Shell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-stone-200 bg-white/95 px-4 py-3 backdrop-blur">
         <Link href="/" className="flex items-center gap-2">
           <img src="/icons/icon.svg" alt="" width={32} height={32} className="rounded-lg" />
-          <span className="leading-tight">
-            <span className="block text-lg font-bold text-emerald-800">Haqdar AI</span>
-            <span className="block text-xs text-stone-500">{t.tagline}</span>
+          <span className="brand-text leading-tight">
+            <span className="block whitespace-nowrap text-lg font-bold text-emerald-800">Haqdar AI</span>
+            <span className="tagline block whitespace-nowrap text-xs text-stone-500">{t.tagline}</span>
           </span>
         </Link>
         <div className="flex items-center gap-2">

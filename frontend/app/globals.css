@@ -30,3 +30,18 @@ html.text-large {
 .cite {
   @apply ml-0.5 inline-block rounded bg-emerald-100 px-1 text-xs font-semibold align-super text-emerald-800 no-underline;
 }
+
+/* Keep the header on one line when text is large */
+html.text-large .tagline {
+  display: none;
+}
+textarea::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 480px) {
+  html.text-large .brand-text {
+    display: none;
+  }
+}
