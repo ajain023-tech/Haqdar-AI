@@ -94,15 +94,23 @@ def chat(req: ChatRequest):
 @app.post("/voice")
 async def voice(audio: UploadFile = File(...), session_id: Optional[str] = Form(None),
                 lang: Optional[str] = Form(None), transcript: Optional[str] = Form(None),
-                speak: bool = Form(True)):
+                speak: bool = Form(True), transcribe_only: bool = Form(False), speak_only: bool = Form(False)):
     """Upload audio -> transcript -> same answer as /chat -> optional TTS.
 
-    The UI shows the transcript for editing first: send the edited text back as `transcript`
-    (with any small audio blob) to skip re-transcribing.
+    Modes for the UI's editable-transcript flow:
+      transcribe_only=true  -> {"transcript"} only; the user edits it, then sends it to /chat
+      speak_only=true       -> {"audio_url"} for `transcript` (read an answer aloud)
+    Sending `transcript` with any small audio blob skips speech-to-text.
     """
     speech = get_speech()
     text = (transcript or "").strip()
     detected = None
+    if speak_only:
+        if speech is None:
+            raise HTTPException(503, "Voice output is not configured on this server.")
+        if not text:
+            raise HTTPException(422, "Nothing to speak.")
+        return {"audio_url": speech.synthesize(text, lang or "hi")}
     if not text:
         if speech is None:
             raise HTTPException(503, "Voice is not configured on this server (set SARVAM_API_KEY).")
@@ -113,6 +121,8 @@ async def voice(audio: UploadFile = File(...), session_id: Optional[str] = Form(
                                            audio.content_type or "audio/webm")
     if not text:
         raise HTTPException(422, "Could not understand the audio. Please try again or type your question.")
+    if transcribe_only:
+        return {"transcript": text, "detected_language": detected}
     req = ChatRequest(message=text, session_id=session_id, lang=lang or "auto", stream=False)
     final = Agent(AgentConfig()).run(req.message, req.session_id, None if req.lang == "auto" else req.lang)
     final.pop("type", None)

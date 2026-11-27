@@ -97,3 +97,21 @@ def test_rate_limit(store):
     c = TestClient(mini)
     codes = [c.post("/search").status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+def test_voice_modes(client, monkeypatch):
+    import backend.api.main as m
+
+    class FakeSpeech:
+        def transcribe(self, audio, filename, content_type):
+            return "PM Kisan kya hai", "hi-IN"
+
+        def synthesize(self, text, lang):
+            return "data:audio/wav;base64,AAA"
+
+    monkeypatch.setattr(m, "get_speech", lambda: FakeSpeech())
+    r = client.post("/voice", files={"audio": ("a.webm", b"xx", "audio/webm")}, data={"transcribe_only": "true"})
+    assert r.json() == {"transcript": "PM Kisan kya hai", "detected_language": "hi-IN"}
+    r = client.post("/voice", files={"audio": ("a.webm", b"", "audio/webm")},
+                    data={"transcript": "namaste", "speak_only": "true"})
+    assert r.json()["audio_url"].startswith("data:audio/wav")
