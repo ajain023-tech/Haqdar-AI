@@ -40,3 +40,6 @@ jobs:
           else
             python -m ingest.refresh
           fi
+      - name: Backfill embeddings (chunks saved while the daily embedding quota was used up)
+        if: always()
+        run: python -m scripts.backfill_embeddings --max 800
