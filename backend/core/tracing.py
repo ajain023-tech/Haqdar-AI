@@ -1,6 +1,6 @@
 """Langfuse tracing without the SDK: one trace per request, one span per pipeline step.
 
-Events are posted to Langfuse's public ingestion API in a background thread when the request ends.
+Spans are exported to Langfuse's OpenTelemetry endpoint when the request ends.
 With no LANGFUSE_* keys set every call is a no-op, so tracing never slows down or breaks a query.
 Only eligibility fields and query text are traced — never names, phone numbers or Aadhaar.
 """
@@ -64,35 +64,73 @@ class _NoopSink:
 
 
 class _LangfuseSink:
+    """Sends a finished trace to Langfuse's OpenTelemetry endpoint (OTLP over HTTP/JSON).
+
+    The legacy /api/public/ingestion endpoint now answers 410 Gone, so traces go through
+    /api/public/otel/v1/traces: one root span (the request) and one child span per pipeline step.
+    """
+
     def __init__(self, host: str, public_key: str, secret_key: str) -> None:
-        self.url = host.rstrip("/") + "/api/public/ingestion"
+        self.url = host.rstrip("/") + "/api/public/otel/v1/traces"
         self.auth = (public_key, secret_key)
 
-    def _batch(self, t: Trace) -> List[Dict[str, Any]]:
-        events = [{
-            "id": str(uuid.uuid4()), "type": "trace-create", "timestamp": _ts(t.start),
-            "body": {"id": t.id, "name": t.name, "input": t.input, "output": t.output,
-                     "metadata": t.metadata, "sessionId": t.session_id, "timestamp": _ts(t.start)},
+    @staticmethod
+    def _attrs(d: Dict[str, Any]) -> List[Dict[str, Any]]:
+        import json as _json
+        out = []
+        for k, v in d.items():
+            if v is None:
+                continue
+            sv = v if isinstance(v, str) else _json.dumps(v, ensure_ascii=False, default=str)
+            out.append({"key": k, "value": {"stringValue": sv[:20000]}})
+        return out
+
+    def _payload(self, t: Trace) -> Dict[str, Any]:
+        trace_id = uuid.UUID(t.id).hex
+        root_id = uuid.uuid4().hex[:16]
+        end = time.time()
+        ns = lambda x: str(int(x * 1e9))  # noqa: E731
+        spans = [{
+            "traceId": trace_id, "spanId": root_id, "name": t.name, "kind": 2,
+            "startTimeUnixNano": ns(t.start), "endTimeUnixNano": ns(end),
+            "attributes": self._attrs({
+                "langfuse.trace.name": t.name, "langfuse.session.id": t.session_id,
+                "langfuse.trace.input": t.input, "langfuse.trace.output": t.output,
+                "langfuse.trace.metadata": t.metadata,
+            }),
         }]
         for s in t.spans:
-            body = {"id": s["id"], "traceId": t.id, "name": s["name"], "input": s.get("input"),
-                    "output": s.get("output"), "startTime": _ts(s["start"]), "endTime": _ts(s.get("end"))}
+            attrs = {"langfuse.observation.input": s.get("input"), "langfuse.observation.output": s.get("output")}
             if s.get("level"):
-                body.update(level=s["level"], statusMessage=s.get("status"))
-            events.append({"id": str(uuid.uuid4()), "type": "span-create", "timestamp": _ts(s["start"]),
-                           "body": body})
-        return events
+                attrs.update({"langfuse.observation.level": s["level"],
+                              "langfuse.observation.status_message": s.get("status")})
+            spans.append({
+                "traceId": trace_id, "spanId": uuid.uuid4().hex[:16], "parentSpanId": root_id, "name": s["name"],
+                "kind": 1, "startTimeUnixNano": ns(s["start"]), "endTimeUnixNano": ns(s.get("end") or end),
+                "attributes": self._attrs(attrs),
+            })
+        return {"resourceSpans": [{
+            "resource": {"attributes": self._attrs({"service.name": "haqdar-api"})},
+            "scopeSpans": [{"scope": {"name": "haqdar"}, "spans": spans}],
+        }]}
 
     def send(self, trace: Trace) -> None:
-        batch = self._batch(trace)
+        payload = self._payload(trace)
 
         def _post() -> None:
             try:
-                httpx.post(self.url, json={"batch": batch}, auth=self.auth, timeout=10.0)
+                r = httpx.post(self.url, json=payload, auth=self.auth, timeout=10.0)
+                if r.status_code >= 300:
+                    log.warning("langfuse otel export failed: %s %s", r.status_code, r.text[:200])
             except Exception as exc:  # noqa: BLE001
                 log.debug("langfuse send failed: %s", exc)
 
-        threading.Thread(target=_post, daemon=True).start()
+        # Serverless functions may freeze right after the response: send inline there, in a thread elsewhere.
+        import os
+        if os.environ.get("VERCEL"):
+            _post()
+        else:
+            threading.Thread(target=_post, daemon=True).start()
 
 
 _sink = None

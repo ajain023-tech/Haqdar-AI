@@ -353,6 +353,7 @@ class PgStore(Store):
         return out
 
     def upsert_scheme(self, scheme, raw_text=""):
+        self.__dict__.pop("_list_cache", None)  # writes invalidate the cached scheme list
         from psycopg.types.json import Jsonb
         vals = {f: scheme.get(f) for f in SCHEME_FIELDS}
         vals["state"] = vals["state"] or "ALL"
@@ -393,7 +394,20 @@ class PgStore(Store):
         by_id = {r["id"]: self._row(r) for r in rows}
         return [by_id[i] for i in ids if i in by_id]
 
+    LIST_TTL = 120.0  # seconds; the scheme list changes once a day
+
     def list_schemes(self, state=None, status="active"):
+        import time
+        key = (state, status)
+        cache = self.__dict__.setdefault("_list_cache", {})
+        hit = cache.get(key)
+        if hit and time.time() - hit[0] < self.LIST_TTL:
+            return [dict(r) for r in hit[1]]
+        rows = self._list_schemes(state, status)
+        cache[key] = (time.time(), rows)
+        return [dict(r) for r in rows]
+
+    def _list_schemes(self, state=None, status="active"):
         sql, args = "SELECT * FROM schemes WHERE status = %s", [status]
         if state:
             sql += " AND state IN ('ALL', %s)"
@@ -402,6 +416,7 @@ class PgStore(Store):
             return [self._row(r) for r in conn.execute(sql, args).fetchall()]
 
     def mark_inactive(self, slugs):
+        self.__dict__.pop("_list_cache", None)  # writes invalidate the cached scheme list
         slugs = list(slugs)
         if not slugs:
             return 0
@@ -411,11 +426,13 @@ class PgStore(Store):
             return cur.rowcount
 
     def set_verification(self, slug, value):
+        self.__dict__.pop("_list_cache", None)  # writes invalidate the cached scheme list
         with self.pool.connection() as conn:
             cur = conn.execute("UPDATE schemes SET verification = %s WHERE slug = %s", (value, slug))
             return cur.rowcount > 0
 
     def set_criteria(self, slug, criteria):
+        self.__dict__.pop("_list_cache", None)  # writes invalidate the cached scheme list
         from psycopg.types.json import Jsonb
         with self.pool.connection() as conn:
             cur = conn.execute("UPDATE schemes SET criteria = %s, updated_at = now() WHERE slug = %s",
@@ -463,7 +480,7 @@ class PgStore(Store):
             out.append(Hit(chunk_id=r["chunk_id"], scheme_id=r["scheme_id"], slug=r["slug"], name=r["name"],
                            section=r["section"], lang=r["lang"], text=r["text"], source_url=r["source_url"],
                            last_checked=r["last_checked"], verification=r["verification"],
-                           score=float(r["score"])))
+                           score=float(r["score"] or 0.0)))
         return out
 
     def vector_search(self, qvec, k, filters):

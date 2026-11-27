@@ -71,7 +71,7 @@ def _retry_after(r: httpx.Response) -> float:
 class GeminiLLM(LLM):
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str, timeout: float = 25.0):
+    def __init__(self, api_key: str, model: str, timeout: float = 15.0):
         self.api_key = api_key
         self.model = model
         # Key in a header, never in the URL, so it can't leak into logs or error messages.
@@ -219,16 +219,25 @@ def _wait_mode() -> bool:
     return os.environ.get("LLM_WAIT_ON_LIMIT", "0") == "1"
 
 
+def _chain(s: Settings, first: str) -> List[LLM]:
+    names: List[str] = []
+    for m in (first, s.llm_model, s.llm_fast_model, s.llm_fallback_model):
+        if m and m not in names:
+            names.append(m)
+    return [GeminiLLM(s.gemini_api_key, m) for m in names]
+
+
 def get_llm(settings: Optional[Settings] = None) -> LLM:
-    """The answer-writing model (quality first), falling back to the fast model when rate-limited."""
+    """The answer-writing model, falling back through the other configured models when rate-limited.
+
+    Free-tier quotas are per model (in Nov 2026: flash 5/min and 20/day, flash-lite 15/min), so the
+    default is flash-lite with an older lite model behind it.
+    """
     global _llm
     if _llm is None:
         s = settings or get_settings()
         if s.llm_provider == "gemini" and s.gemini_api_key:
-            chain: List[LLM] = [GeminiLLM(s.gemini_api_key, s.llm_model)]
-            if s.llm_fast_model and s.llm_fast_model != s.llm_model:
-                chain.append(GeminiLLM(s.gemini_api_key, s.llm_fast_model))
-            _llm = FallbackLLM(chain, wait=_wait_mode())
+            _llm = FallbackLLM(_chain(s, s.llm_model), wait=_wait_mode())
         else:
             _llm = FakeLLM()
     return _llm
@@ -240,10 +249,7 @@ def get_fast_llm(settings: Optional[Settings] = None) -> LLM:
     if _fast_llm is None:
         s = settings or get_settings()
         if s.llm_provider == "gemini" and s.gemini_api_key:
-            chain: List[LLM] = [GeminiLLM(s.gemini_api_key, s.llm_fast_model or s.llm_model)]
-            if s.llm_fast_model and s.llm_fast_model != s.llm_model:
-                chain.append(GeminiLLM(s.gemini_api_key, s.llm_model))
-            _fast_llm = FallbackLLM(chain, wait=_wait_mode())
+            _fast_llm = FallbackLLM(_chain(s, s.llm_fast_model), wait=_wait_mode())
         else:
             _fast_llm = FakeLLM()
     return _fast_llm

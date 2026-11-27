@@ -21,14 +21,14 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional
 
-from backend.agent.router import NAME_GENERIC, Route, SchemeIndex, named_phrase, route
+from backend.agent.router import FIND_CUES, NAME_GENERIC, Route, SchemeIndex, named_phrase, route
 from backend.core.cache import Cache, cache_key, get_cache
 from backend.core.config import Settings, get_settings
 from backend.core.lang import detect_lang
 from backend.core.tracing import Trace
 from backend.core.usage import record_query
 from backend.providers.embeddings import Embedder, get_embedder
-from backend.providers.llm import LLM, get_fast_llm, get_llm
+from backend.providers.llm import LLM, FakeLLM, get_fast_llm, get_llm
 from backend.providers.reranker import Reranker, get_reranker
 from backend.rag import answer as answer_mod
 from backend.rag import selfcheck
@@ -109,7 +109,10 @@ class Agent:
         lang = lang if lang in ("en", "hi", "hinglish") else (
             prev_lang if reply_to_followup and prev_lang else detect_lang(message))
         with trace.span("extract_profile", input={"lang": lang}) as sp:
-            prof = extract_profile(message, prev_profile, llm=self.fast_llm, pending=pending)
+            # Only spend an LLM call on the profile when the user is describing themselves.
+            describes_self = bool(pending) or bool(FIND_CUES.search(message))
+            prof = extract_profile(message, prev_profile, llm=self.fast_llm if describes_self else FakeLLM(),
+                                   pending=pending)
             if profile:
                 prof.update({k: v for k, v in profile.items() if v is not None})
             sp["output"] = prof
@@ -236,8 +239,8 @@ class Agent:
             self.cache.set(ckey, {k: v for k, v in payload.items() if k not in ("session_id", "trace_id")},
                            ttl=self.settings.cache_ttl_seconds)
         self._save(session_id, prof, history, ask, payload, asked, lang)
-        trace.end({"answer": ans.text[:500], "refused": ans.refused})
         yield {"type": "final", **payload}
+        trace.end({"answer": ans.text[:500], "refused": ans.refused})  # after the answer is out
 
     # ------------------------------------------------------------------ helpers
     def _retrieve(self, query: str, filters: Filters, alt_query: Optional[str] = None) -> RetrievalResult:

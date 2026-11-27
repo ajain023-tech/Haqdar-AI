@@ -55,8 +55,9 @@ class Settings:
 
     gemini_api_key: str = ""
     llm_provider: str = "gemini"
-    llm_model: str = "gemini-3.5-flash"
+    llm_model: str = "gemini-3.5-flash-lite"
     llm_fast_model: str = "gemini-3.5-flash-lite"
+    llm_fallback_model: str = "gemini-3.1-flash-lite"
     embed_provider: str = "gemini"
     embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
@@ -92,8 +93,9 @@ def get_settings() -> Settings:
         upstash_rest_token=_env("UPSTASH_REDIS_REST_TOKEN"),
         gemini_api_key=key,
         llm_provider=_env("LLM_PROVIDER", "gemini" if key else "fake"),
-        llm_model=_env("LLM_MODEL", "gemini-3.5-flash"),
+        llm_model=_env("LLM_MODEL", "gemini-3.5-flash-lite"),
         llm_fast_model=_env("LLM_FAST_MODEL", "gemini-3.5-flash-lite"),
+        llm_fallback_model=_env("LLM_FALLBACK_MODEL", "gemini-3.1-flash-lite"),
         embed_provider=_env("EMBED_PROVIDER", "gemini" if key else "hash"),
         embed_model=_env("EMBED_MODEL", "gemini-embedding-001"),
         embed_dim=int(_env("EMBED_DIM", "768")),
