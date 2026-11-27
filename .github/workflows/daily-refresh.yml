@@ -1,0 +1,42 @@
+name: daily-refresh
+# Re-check every scheme once a day (03:30 IST): content_hash diff, re-extract + re-embed only what changed,
+# mark missing schemes inactive, write a change_log row for the "Recently updated" panel.
+on:
+  schedule:
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: "comma-separated slugs (empty = full run)"
+        required: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      HAQDAR_STATE: Uttar Pradesh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt -r ingest/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Restore raw page cache
+        uses: actions/cache@v4
+        with:
+          path: data/raw/myscheme
+          key: myscheme-raw-${{ github.run_id }}
+          restore-keys: myscheme-raw-
+      - name: Refresh
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "set the DATABASE_URL secret"; exit 1; fi
+          if [ -n "${{ inputs.slugs }}" ]; then
+            python -m ingest.refresh --slugs "${{ inputs.slugs }}"
+          else
+            python -m ingest.refresh
+          fi

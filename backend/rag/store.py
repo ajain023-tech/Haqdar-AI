@@ -80,6 +80,14 @@ class Store:
     def mark_inactive(self, slugs: Iterable[str]) -> int:
         raise NotImplementedError
 
+    def set_verification(self, slug: str, value: str) -> bool:
+        """verified | auto | stale. Returns False if the slug is unknown."""
+        raise NotImplementedError
+
+    def set_criteria(self, slug: str, criteria: Dict[str, Any]) -> bool:
+        """Replace criteria without touching content_hash (hand corrections, conflict flags)."""
+        raise NotImplementedError
+
     # --- chunks ---
     def replace_chunks(self, scheme_id: int, chunks: List[Chunk], embeddings: List[List[float]]) -> int:
         raise NotImplementedError
@@ -184,6 +192,20 @@ class MemoryStore(Store):
                 self.schemes[sid]["status"] = "inactive"
                 n += 1
         return n
+
+    def set_verification(self, slug, value):
+        sid = self.by_slug.get(slug)
+        if not sid:
+            return False
+        self.schemes[sid]["verification"] = value
+        return True
+
+    def set_criteria(self, slug, criteria):
+        sid = self.by_slug.get(slug)
+        if not sid:
+            return False
+        self.schemes[sid]["criteria"] = dict(criteria)
+        return True
 
     # chunks
     def replace_chunks(self, scheme_id, chunks, embeddings):
@@ -370,6 +392,18 @@ class PgStore(Store):
             cur = conn.execute("UPDATE schemes SET status = 'inactive', updated_at = now() "
                                "WHERE slug = ANY(%s) AND status <> 'inactive'", (slugs,))
             return cur.rowcount
+
+    def set_verification(self, slug, value):
+        with self.pool.connection() as conn:
+            cur = conn.execute("UPDATE schemes SET verification = %s WHERE slug = %s", (value, slug))
+            return cur.rowcount > 0
+
+    def set_criteria(self, slug, criteria):
+        from psycopg.types.json import Jsonb
+        with self.pool.connection() as conn:
+            cur = conn.execute("UPDATE schemes SET criteria = %s, updated_at = now() WHERE slug = %s",
+                               (Jsonb(criteria), slug))
+            return cur.rowcount > 0
 
     def replace_chunks(self, scheme_id, chunks, embeddings):
         import numpy as np
