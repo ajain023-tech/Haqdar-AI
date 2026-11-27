@@ -174,3 +174,11 @@ def test_search_works_without_embeddings():
     assert res.hits and res.hits[0].slug == "pmuy"               # keyword search still answers
     store.set_embeddings([(c["id"], HashEmbedder().embed_query(c["text"])) for c in store.chunks_without_embeddings()])
     assert store.chunks_without_embeddings() == []
+
+
+def test_strip_unsupported_leaves_no_empty_bullets():
+    hits = [_hit(1, text="Widows get Rs 1000 per month.")]
+    text = "* You are eligible for every scheme in India [1].\n* Widows get Rs 1000 per month [1]."
+    res = check(text, hits)
+    cleaned = strip_unsupported(text, res)
+    assert cleaned == "* Widows get Rs 1000 per month [1]."

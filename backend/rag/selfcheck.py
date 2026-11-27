@@ -124,5 +124,7 @@ def strip_unsupported(answer_text: str, result: SelfCheckResult) -> str:
     out = answer_text
     for c in result.unsupported:
         out = out.replace(c.claim, "")
-    out = re.sub(r"\n\s*[-*•]\s*\n", "\n", out)
+    out = re.sub(r"^[ \t]*[-*•][ \t]*$\n?", "", out, flags=re.M)        # bullets left empty
+    out = re.sub(r"([-*•])[ \t]+(?=[-*•][ \t])", "", out)               # "*  * text" -> "* text"
+    out = re.sub(r"^[ \t]*[-*•][ \t]*(?=[-*•])", "", out, flags=re.M)
     return re.sub(r"[ \t]{2,}", " ", out).strip()

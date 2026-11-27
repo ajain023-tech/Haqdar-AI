@@ -39,6 +39,7 @@ from backend.rules import evaluate, extract_profile, pick_followup
 from backend.rules.engine import Verdict
 
 MAX_CARDS = 6
+RETRY_BELOW = 0.5            # self-check faithfulness below which we re-retrieve and rewrite once
 NAMED_MATCH_SHARE = 0.6      # share of a named scheme's distinctive words a hit's name must contain
 
 
@@ -196,7 +197,9 @@ class Agent:
             with trace.span("self_check") as sp:
                 streamed = ans.text
                 check = selfcheck.check(ans.text, res.hits, llm=self.fast_llm)
-                if not check.ok:
+                # Mostly unsupported -> re-retrieve and rewrite once. A few bad claims -> just drop them
+                # (a full retry costs 3 more LLM calls, which the free tier can't afford per question).
+                if not check.ok and check.faithfulness < RETRY_BELOW:
                     extra = " ".join(c.claim for c in check.unsupported)[:300]
                     res2 = self._retrieve(f"{query} {extra}", filters, alt)
                     ans2 = answer_mod.generate(ask, res2.hits, lang, res2.top_score, threshold,
@@ -204,13 +207,13 @@ class Agent:
                     check2 = selfcheck.check(ans2.text, res2.hits, llm=self.fast_llm)
                     if check2.faithfulness >= check.faithfulness:
                         ans, check, res = ans2, check2, res2
-                    if not check.ok:
-                        cleaned = selfcheck.strip_unsupported(ans.text, check)
-                        if len(selfcheck.split_claims(cleaned)) == 0:
-                            ans = answer_mod.Answer(answer_mod.REFUSAL.get(lang, answer_mod.REFUSAL["en"]),
-                                                    lang, [], refused=True)
-                        else:
-                            ans = answer_mod.finalize(cleaned, res.hits, lang)
+                if not check.ok:
+                    cleaned = selfcheck.strip_unsupported(ans.text, check)
+                    if len(selfcheck.split_claims(cleaned)) == 0:
+                        ans = answer_mod.Answer(answer_mod.REFUSAL.get(lang, answer_mod.REFUSAL["en"]),
+                                                lang, [], refused=True)
+                    else:
+                        ans = answer_mod.finalize(cleaned, res.hits, lang)
                 if ans.text != streamed:
                     yield {"type": "revise", "text": ans.text}
                 sp["output"] = {"ok": check.ok, "faithfulness": check.faithfulness}
