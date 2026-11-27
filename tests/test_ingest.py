@@ -133,3 +133,13 @@ def test_allowlist():
     assert scraper.allowed_url("https://www.myscheme.gov.in/schemes/x")
     assert not scraper.allowed_url("https://evil.example.com/x")
     assert scraper.allowed_url("https://pmkisan.gov.in/a.pdf", fetch=False)
+
+
+def test_rich_text_fallback_when_markdown_missing():
+    page = raw_page()
+    sc = page["content"]["scheme"]["data"]["en"]["schemeContent"]
+    sc.pop("benefits_md")
+    sc["benefits"] = [{"type": "paragraph", "children": [{"text": "A pension of Rs.300/- per month"}]},
+                      {"type": "ul_list", "children": [{"type": "list_item", "children": [{"text": "Rs.500 after 80"}]}]}]
+    rec = parse_raw({"en": page})
+    assert rec["sections"]["en"]["benefits"] == "A pension of Rs.300/- per month. Rs.500 after 80."

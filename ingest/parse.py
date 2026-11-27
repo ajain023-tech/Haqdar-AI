@@ -42,6 +42,45 @@ def md_to_text(md: Optional[str]) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def rich_to_text(nodes: Any) -> str:
+    """myScheme's Slate-style rich text (paragraphs, headings, lists, links) -> plain sentences.
+
+    Some pages ship only this tree, without the `*_md` markdown copy.
+    """
+    blocks: List[str] = []
+
+    def inline(n: Any) -> str:
+        if isinstance(n, dict):
+            return n.get("text", "") + "".join(inline(c) for c in n.get("children") or [])
+        if isinstance(n, list):
+            return "".join(inline(c) for c in n)
+        return ""
+
+    def walk(n: Any) -> None:
+        if isinstance(n, list):
+            for c in n:
+                walk(c)
+            return
+        if not isinstance(n, dict):
+            return
+        kind = n.get("type", "")
+        if kind in ("paragraph", "list_item", "heading_one", "heading_two", "heading_three", "heading_four",
+                    "heading_five", "heading_six", "block_quote") or not n.get("children"):
+            t = re.sub(r"\s+", " ", html.unescape(inline(n))).strip()
+            if t:
+                end = ":" if kind.startswith("heading") else ("" if t.endswith((".", ":", "?", "!", "।")) else ".")
+                blocks.append(t + end)
+        else:
+            walk(n.get("children") or [])
+
+    walk(nodes)
+    return " ".join(blocks)
+
+
+def _md_or_rich(md: Optional[str], rich: Any) -> str:
+    return md_to_text(md) or rich_to_text(rich or [])
+
+
 def _label(v: Any) -> Optional[str]:
     if isinstance(v, dict):
         return v.get("label")
@@ -102,7 +141,7 @@ def _faqs(faq_json: Dict[str, Any], lang: str) -> str:
     d = ((faq_json or {}).get("data") or {}).get(lang) or {}
     parts = []
     for f in d.get("faqs") or []:
-        q, a = (f.get("question") or "").strip(), md_to_text(f.get("answer_md"))
+        q, a = (f.get("question") or "").strip(), _md_or_rich(f.get("answer_md"), f.get("answer"))
         if q and a:
             parts.append(f"{q.rstrip('?')}? {a}")
     return " ".join(parts)
@@ -113,14 +152,15 @@ def _sections(data: Dict[str, Any], content: Dict[str, Any], lang: str) -> Dict[
     el = data.get("eligibilityCriteria") or {}
     steps = []
     for ch in data.get("applicationProcess") or []:
-        body = md_to_text(ch.get("process_md"))
+        body = _md_or_rich(ch.get("process_md"), ch.get("process"))
         if body:
             steps.append(f"{ch.get('mode') or 'Process'}: {body}")
     sections = {
-        "details": md_to_text(sc.get("detailedDescription_md")) or (sc.get("briefDescription") or ""),
-        "benefits": md_to_text(sc.get("benefits_md")),
-        "eligibility": md_to_text(el.get("eligibilityDescription_md")),
-        "exclusions": md_to_text(sc.get("exclusions_md")),
+        "details": _md_or_rich(sc.get("detailedDescription_md"), sc.get("detailedDescription"))
+                   or (sc.get("briefDescription") or ""),
+        "benefits": _md_or_rich(sc.get("benefits_md"), sc.get("benefits")),
+        "eligibility": _md_or_rich(el.get("eligibilityDescription_md"), el.get("eligibilityDescription")),
+        "exclusions": _md_or_rich(sc.get("exclusions_md"), sc.get("exclusions")),
         "application_process": " ".join(steps),
         "documents_required": _documents(content.get("documents"), lang),
         "faq": _faqs(content.get("faqs"), lang),
