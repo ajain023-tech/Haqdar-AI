@@ -97,14 +97,58 @@ class RedisCache(Cache):
             return 0
 
 
+class UpstashRestCache(Cache):
+    """Upstash Redis over its HTTPS REST API (UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN).
+
+    For hosts where the TCP password isn't at hand; same behaviour as RedisCache, one HTTPS call per command.
+    """
+
+    def __init__(self, url: str, token: str) -> None:
+        import httpx
+        self.url = url.rstrip("/")
+        self.client = httpx.Client(timeout=3.0, headers={"Authorization": f"Bearer {token}"})
+
+    def _cmd(self, *args: Any) -> Any:
+        r = self.client.post(self.url, json=[str(a) for a in args])
+        r.raise_for_status()
+        return r.json().get("result")
+
+    def get(self, key):
+        try:
+            raw = self._cmd("GET", key)
+            return json.loads(raw) if raw else None
+        except Exception:  # noqa: BLE001 - a cache outage must never fail a query
+            return None
+
+    def set(self, key, value, ttl):
+        try:
+            self._cmd("SET", key, json.dumps(value, ensure_ascii=False), "EX", int(ttl))
+        except Exception:  # noqa: BLE001
+            pass
+
+    def incr(self, key, ttl):
+        try:
+            r = self.client.post(f"{self.url}/pipeline",
+                                 json=[["SET", key, "0", "EX", str(int(ttl)), "NX"], ["INCR", key]])
+            r.raise_for_status()
+            return int(r.json()[1]["result"])
+        except Exception:  # noqa: BLE001 - fail open
+            return 0
+
+
 _cache: Optional[Cache] = None
 
 
 def get_cache() -> Cache:
     global _cache
     if _cache is None:
-        url = get_settings().redis_url
-        _cache = RedisCache(url) if url else MemoryCache()
+        s = get_settings()
+        if s.redis_url:
+            _cache = RedisCache(s.redis_url)
+        elif s.upstash_rest_url and s.upstash_rest_token:
+            _cache = UpstashRestCache(s.upstash_rest_url, s.upstash_rest_token)
+        else:
+            _cache = MemoryCache()
     return _cache
 
 

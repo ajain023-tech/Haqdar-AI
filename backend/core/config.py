@@ -8,7 +8,10 @@ from typing import List
 
 
 def _env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
+    v = os.environ.get(name, default).strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+        v = v[1:-1].strip()  # tolerate KEY="value" and KEY='value'
+    return v
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -28,10 +31,12 @@ def _load_dotenv(path: str = ".env") -> None:
 class Settings:
     database_url: str = ""
     redis_url: str = ""
+    upstash_rest_url: str = ""
+    upstash_rest_token: str = ""
 
     gemini_api_key: str = ""
     llm_provider: str = "gemini"
-    llm_model: str = "gemini-2.5-flash"
+    llm_model: str = "gemini-3.5-flash"
     embed_provider: str = "gemini"
     embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
@@ -63,9 +68,11 @@ def get_settings() -> Settings:
     return Settings(
         database_url=_env("DATABASE_URL"),
         redis_url=_env("REDIS_URL"),
+        upstash_rest_url=_env("UPSTASH_REDIS_REST_URL"),
+        upstash_rest_token=_env("UPSTASH_REDIS_REST_TOKEN"),
         gemini_api_key=key,
         llm_provider=_env("LLM_PROVIDER", "gemini" if key else "fake"),
-        llm_model=_env("LLM_MODEL", "gemini-2.5-flash"),
+        llm_model=_env("LLM_MODEL", "gemini-3.5-flash"),
         embed_provider=_env("EMBED_PROVIDER", "gemini" if key else "hash"),
         embed_model=_env("EMBED_MODEL", "gemini-embedding-001"),
         embed_dim=int(_env("EMBED_DIM", "768")),

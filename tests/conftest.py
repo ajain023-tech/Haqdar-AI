@@ -3,7 +3,7 @@ import os
 import pytest
 
 # Force offline providers before anything reads settings.
-for var in ("GEMINI_API_KEY", "DATABASE_URL", "REDIS_URL", "RERANKER_URL", "LANGFUSE_PUBLIC_KEY",
+for var in ("GEMINI_API_KEY", "DATABASE_URL", "REDIS_URL", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "HF_TOKEN", "RERANKER_URL", "LANGFUSE_PUBLIC_KEY",
             "LANGFUSE_SECRET_KEY", "SARVAM_API_KEY"):
     os.environ[var] = ""
 os.environ["ADMIN_TOKEN"] = "test-admin"
