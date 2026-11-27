@@ -71,3 +71,11 @@ def test_agent_on_postgres(pg):
     out = Agent(AgentConfig(), store=pg, cache=MemoryCache()).run("PM Kisan mein kitne paise milte hain?")
     assert out["answer"]["citations"][0]["slug"] == "pm-kisan"
     assert pg.get_session(out["session_id"]) is not None
+
+
+def test_set_verification_and_criteria(pg):
+    assert pg.set_verification("pmuy", "verified")
+    assert pg.set_criteria("pmuy", {"gender": "female", "_extracted_by": "human"})
+    s = pg.get_scheme("pmuy")
+    assert s["verification"] == "verified" and s["criteria"]["_extracted_by"] == "human"
+    assert not pg.set_verification("no-such-scheme", "verified")
