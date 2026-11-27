@@ -37,6 +37,24 @@ jobs:
           name: eval-offline
           path: eval/results/
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Build (mock API; also type-checks and generates next-env.d.ts)
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+
   eval-live:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
