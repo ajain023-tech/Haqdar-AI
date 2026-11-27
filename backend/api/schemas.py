@@ -63,6 +63,7 @@ class EligibilityItem(BaseModel):
     verdict: Literal["eligible", "maybe", "no"]
     reasons: List[str]
     missing: List[str]
+    also_check: List[str] = []
     source_url: Optional[str] = None
     last_checked: Optional[str] = None
     verification: Optional[str] = None

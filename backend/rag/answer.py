@@ -83,6 +83,7 @@ def build_prompt(question: str, hits: List[Hit], lang: str, verdicts: Optional[L
     if verdicts:
         lines = [f"- {v['name']}: {v['verdict'].upper()} ({'; '.join(v.get('reasons') or []) or 'no reasons'})"
                  + (f" — missing: {', '.join(v['missing'])}" if v.get("missing") else "")
+                 + (f" — user must also confirm: {'; '.join(v['also_check'])}" if v.get("also_check") else "")
                  for v in verdicts[:8]]
         parts.append("Rule-engine verdicts (facts, do not change):\n" + "\n".join(lines))
     parts.append(f"Sources:\n{sources}")

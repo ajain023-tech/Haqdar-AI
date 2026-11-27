@@ -65,6 +65,7 @@ class Verdict:
     verdict: str                      # eligible | maybe | no
     reasons: List[str] = field(default_factory=list)
     missing: List[str] = field(default_factory=list)
+    also_check: List[str] = field(default_factory=list)   # official conditions the engine cannot check
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -87,7 +88,8 @@ def _occupations(value: Any) -> set:
 def evaluate_one(profile: Dict[str, Any], scheme: Dict[str, Any], lang: str = "en") -> Verdict:
     t = T.get(lang, T["en"])
     c = scheme.get("criteria") or {}
-    v = Verdict(scheme["id"], scheme["slug"], scheme["name"], "eligible")
+    v = Verdict(scheme["id"], scheme["slug"], scheme["name"], "eligible",
+                also_check=list(c.get("_not_expressible") or []))
     fails: List[str] = []
     ok: List[str] = []
 

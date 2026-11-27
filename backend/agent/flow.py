@@ -269,7 +269,7 @@ class Agent:
                 "slug": s["slug"], "name": s["name"], "name_hi": s.get("name_hi"), "state": s.get("state"),
                 "category": s.get("category"),
                 "verdict": v.verdict if v else None, "reasons": v.reasons if v else [],
-                "missing": v.missing if v else [],
+                "missing": v.missing if v else [], "also_check": v.also_check if v else [],
                 "benefits": (s.get("benefits") or "")[:400], "documents_required": s.get("documents_required") or [],
                 "source_url": s.get("source_url"), "last_checked": s.get("last_checked"),
                 "verification": s.get("verification"),
