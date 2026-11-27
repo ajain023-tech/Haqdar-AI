@@ -69,6 +69,29 @@ def export(store: Store, top: int, path: str) -> int:
     return rows
 
 
+DRAFTS = os.path.join(os.path.dirname(__file__), "criteria_drafts.json")
+
+
+def apply_drafts(store: Store, path: str = DRAFTS) -> int:
+    """Load hand-drafted criteria (ingest/criteria_drafts.json). Status stays as it is ('auto'): drafts are
+    not verified until someone checks them against the guideline PDF and imports the checklist."""
+    with open(path, encoding="utf-8") as fh:
+        drafts = json.load(fh)
+    n = 0
+    for slug, d in drafts.items():
+        if slug.startswith("_"):
+            continue
+        s = store.get_scheme(slug)
+        if not s:
+            continue
+        crit = normalise(d["criteria"], s.get("state") or "ALL")
+        crit["_extracted_by"] = "manual-draft"
+        if d.get("not_expressible"):
+            crit["_not_expressible"] = d["not_expressible"]
+        n += store.set_criteria(slug, crit)
+    return n
+
+
 def import_checklist(store: Store, path: str) -> Dict[str, int]:
     """Rows with verified in (y, yes, 1, true) become 'verified'; corrected_criteria (JSON) replaces criteria."""
     counts = {"verified": 0, "corrected": 0, "skipped": 0}
@@ -143,12 +166,16 @@ def main() -> None:
     i.add_argument("path")
     c = sub.add_parser("cross-check")
     c.add_argument("--top", type=int, default=50)
+    d = sub.add_parser("apply-drafts")
+    d.add_argument("--path", default=DRAFTS)
     args = ap.parse_args()
     store = get_store()
     if args.cmd == "export":
         print(f"wrote {export(store, args.top, args.out)} rows to {args.out}")
     elif args.cmd == "import":
         print(import_checklist(store, args.path))
+    elif args.cmd == "apply-drafts":
+        print(f"applied {apply_drafts(store, args.path)} drafted criteria (status unchanged: not verified)")
     else:
         for c in cross_check(store, args.top):
             print(json.dumps(c, ensure_ascii=False))

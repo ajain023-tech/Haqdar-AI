@@ -155,6 +155,8 @@ def main() -> None:
     ap.add_argument("--questions", default=os.path.join(HERE, "questions.json"))
     ap.add_argument("--profiles", default=os.path.join(HERE, "profiles.json"))
     ap.add_argument("--corpus", default="", help="JSONL of parsed schemes -> in-memory store (offline/CI)")
+    ap.add_argument("--no-drafts", action="store_true",
+                    help="with --corpus: skip ingest/criteria_drafts.json (measure raw extraction only)")
     ap.add_argument("--setups", default="1,2,3,4")
     ap.add_argument("--limit", type=int, default=0, help="only the first N questions (smoke runs)")
     ap.add_argument("--min-recall", type=float, default=0.0, help="fail (exit 1) if the last setup is below this")
@@ -167,6 +169,9 @@ def main() -> None:
     trick = data["trick"]
 
     store = load_corpus(args.corpus) if args.corpus else get_store()
+    if args.corpus and not args.no_drafts:
+        from ingest.verify import apply_drafts
+        print(f"applied {apply_drafts(store)} drafted criteria", file=sys.stderr)
     set_store(store)
     present = {s["slug"] for s in store.list_schemes()}
     missing = sorted({g for q in questions for g in q["gold_slugs"]} - present)
